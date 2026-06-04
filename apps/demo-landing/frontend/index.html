@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="FlySwarm — a personalized, multi-agent flight-price monitoring swarm that watches fares and alerts you the moment a real deal appears."
+    />
+    <title>FlySwarm | Personalized Flight Monitoring Swarm</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true"></div>
+
+    <main class="page">
+      <header class="hero">
+        <span class="eyebrow">FlySwarm</span>
+        <h1 class="hero-title">Your personal flight-price monitoring swarm</h1>
+        <p class="subtitle">
+          Describe your ideal flight once, then let a coordinated swarm of AI-inspired
+          agents watch prices around the clock and ping you the moment a meaningful
+          drop appears.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#waitlist">Join the waitlist</a>
+          <a class="btn btn-ghost" href="#demo">See it in action</a>
+        </div>
+      </header>
+
+      <section class="card features" aria-labelledby="features-title">
+        <h2 id="features-title">How the swarm works</h2>
+        <p class="section-lead">
+          Five focused agents hand off to each other so you only hear about deals
+          that actually matter.
+        </p>
+        <ul class="feature-grid">
+          <li class="feature-card">
+            <span class="feature-icon" aria-hidden="true">🗣️</span>
+            <div>
+              <strong>Interface Agent</strong>
+              <span>Captures natural-language flight requests from chat.</span>
+            </div>
+          </li>
+          <li class="feature-card">
+            <span class="feature-icon" aria-hidden="true">🧭</span>
+            <div>
+              <strong>Orchestrator Agent</strong>
+              <span>Schedules scans and manages provider rate budgets.</span>
+            </div>
+          </li>
+          <li class="feature-card">
+            <span class="feature-icon" aria-hidden="true">🛰️</span>
+            <div>
+              <strong>Fetching / API Agent</strong>
+              <span>Checks live flight offers across multiple providers.</span>
+            </div>
+          </li>
+          <li class="feature-card">
+            <span class="feature-icon" aria-hidden="true">📈</span>
+            <div>
+              <strong>Analytics Agent</strong>
+              <span>Evaluates trends and confirms genuine price drops.</span>
+            </div>
+          </li>
+          <li class="feature-card">
+            <span class="feature-icon" aria-hidden="true">🔔</span>
+            <div>
+              <strong>Notification Agent</strong>
+              <span>Sends useful, well-timed alerts when real deals appear.</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <section id="demo" class="card demo" aria-labelledby="demo-title">
+        <div class="demo-header">
+          <div>
+            <h2 id="demo-title">Interactive demo</h2>
+            <p class="demo-note">
+              A simulated flow for the landing page only — no real Telegram or travel
+              APIs are used.
+            </p>
+          </div>
+          <button id="demo-button" type="button" class="btn btn-primary">
+            Try Telegram Demo
+          </button>
+        </div>
+        <div class="demo-grid">
+          <div class="panel">
+            <h3 class="panel-title">Telegram chat simulation</h3>
+            <div id="chat-panel" class="chat-panel" aria-live="polite"></div>
+          </div>
+          <div class="panel">
+            <h3 class="panel-title">Live agent activity log</h3>
+            <div id="agent-log" class="agent-log" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="waitlist" class="card waitlist" aria-labelledby="waitlist-title">
+        <h2 id="waitlist-title">Join the waitlist</h2>
+        <p class="section-lead">Get early-access updates as FlySwarm evolves.</p>
+        <form id="waitlist-form" novalidate>
+          <label for="email-input">Email address</label>
+          <div class="form-row">
+            <input
+              id="email-input"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+            />
+            <button id="submit-button" type="submit" class="btn btn-primary">
+              Join
+            </button>
+          </div>
+          <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <footer class="site-footer">
+        <span>FlySwarm</span>
+        <span>Demo landing page · validating the idea, no real bookings yet.</span>
+      </footer>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

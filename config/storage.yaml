@@ -1,0 +1,5 @@
+# Non-secret storage routing config
+# Example:
+# backend: json
+# options:
+#   sqlite_path: data/dev.sqlite3
