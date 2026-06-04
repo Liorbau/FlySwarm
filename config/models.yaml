@@ -1,0 +1,33 @@
+# ─── FlySwarm model/provider routing (committed, NON-SECRET) ──────────────────
+# Selection & tunables only. API keys / base URLs live in `.env` (git-ignored).
+# A factory turns each `model` string into a LiteLLM model id; agents stay
+# vendor-neutral (CLAUDE.md section 4).
+#
+# Override the active provider at runtime with the `LLM_PROVIDER` env var.
+
+default_provider: openai
+
+providers:
+  openai:
+    model: openai/gpt-4o
+    options:
+      temperature: 0.2
+      max_tokens: 4096
+
+  anthropic:
+    model: anthropic/claude-3-5-sonnet-latest
+    options:
+      temperature: 0.2
+      max_tokens: 4096
+
+  google:
+    model: gemini/gemini-1.5-pro
+    options:
+      temperature: 0.2
+      max_tokens: 4096
+
+  ollama:
+    model: ollama_chat/llama3.1
+    options:
+      temperature: 0.2
+      max_tokens: 4096
