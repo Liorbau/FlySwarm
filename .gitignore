@@ -8,6 +8,10 @@
 # ─── Captured User Data (PII — never commit real signups) ─
 emails.json
 
+# ─── Local runtime data (keep the dir, ignore its contents) ─
+data/*
+!data/.gitkeep
+
 # ─── Node.js ─────────────────────────────────────────────
 node_modules/
 npm-debug.log*
@@ -40,4 +44,5 @@ Thumbs.db
 # ─── Logs & Temp ─────────────────────────────────────────
 *.log
 tmp/
+.tmp/
 .cache/

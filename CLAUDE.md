@@ -80,6 +80,17 @@ Anthropic/Claude, Google Gemini, etc.) without changing agent logic.
 - Adding a new provider should mean implementing one adapter against the shared
   interface, nothing more.
 
+### Current implementation map (now in repo)
+- Contract: `packages/contracts/src/llm_provider.py`
+- Config loader: `packages/shared/src/config/__init__.py`
+- LiteLLM adapter + client factory: `packages/adapters/src/llm/litellm_client.py`,
+  `packages/adapters/src/llm/__init__.py`
+- Routing config: `config/models.yaml`
+
+`LiteLLM` is the normalization layer for provider differences and cost/token metadata.
+Agent code (including `harness/`) must always call `get_llm_client()` instead of a
+vendor SDK directly.
+
 ### Configuration split (convention)
 - **Secrets → `.env`** (git-ignored): API keys and base URLs, e.g.
   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `OLLAMA_BASE_URL`.
@@ -128,7 +139,36 @@ later **without touching agent/business logic**. Concretely:
 
 ---
 
-## 6. "The harness" — what the user means
+## 6. Repository structure rule (current proposal)
+
+This repository must keep a **hard separation** between demo artifacts and the real
+system, while allowing both to reuse shared contracts/domain logic.
+
+> This is the **current structure idea** we agreed on. It is a rule for now, but it
+> may be adjusted later if project needs change.
+
+### Target layout
+- `apps/demo-landing/` — demo/experiment-only landing app and validation artifacts.
+- `apps/telegram-bot/` — real Telegram product surface (handlers, chat flows, delivery).
+- `apps/swarm-orchestrator/` — real orchestration runtime (scheduler, workers, coordination).
+- `harness/` — internal agent harness (loop, tool registry, local tests, validation scripts).
+- `packages/domain/` — pure business entities, value objects, and policies (no vendor SDKs).
+- `packages/contracts/` — shared interfaces for model, storage, flight, and notification providers.
+- `packages/adapters/` — swappable provider implementations (local/cloud LLMs, json/sqlite/postgres, mock/live flight APIs).
+- `packages/shared/` — cross-cutting utilities (config loading, logging, observability).
+- `config/` — committed, non-secret routing/config files (models/storage/agents).
+- `data/` — local runtime data files in development.
+- `docs/` — architecture notes, decisions, and experiment outcomes.
+
+### Boundary rules
+- Real apps (`apps/telegram-bot`, `apps/swarm-orchestrator`) must not depend on demo code from `apps/demo-landing`.
+- Cross-app reuse must go through `packages/domain`, `packages/contracts`, or `packages/shared`.
+- External services must be accessed through adapters in `packages/adapters`, never directly from business logic.
+- Provider/DB swaps must remain config-driven (`config/*` + `.env` secrets), not logic-driven.
+
+---
+
+## 7. "The harness" — what the user means
 
 The user built a **harness** during class. Whenever they reference "the harness" or
 "my harness", they mean that custom agent environment/tooling. It becomes directly
@@ -137,7 +177,7 @@ harness, **flag it to the user** rather than assuming or inventing its behavior.
 
 ---
 
-## 7. Working agreement
+## 8. Working agreement
 
 - Stay strictly within the **current session scope** (landing page) and the **selected layer**.
 - Do not scaffold or implement future swarm agents, DBs, or live API integrations.

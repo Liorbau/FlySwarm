@@ -1,0 +1,5 @@
+# Non-secret agent role config
+# Example:
+# interface_agent:
+#   llm_provider: ollama
+#   llm_model: qwen2.5
