@@ -1,0 +1,5 @@
+pytest
+httpx
+# Layer 3 browser end-to-end stack (run `python -m playwright install chromium` once).
+pytest-playwright
+playwright
