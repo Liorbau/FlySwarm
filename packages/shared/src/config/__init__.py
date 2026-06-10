@@ -31,6 +31,15 @@ _PROVIDER_ENV_KEYS: dict[str, dict[str, tuple[str, ...]]] = {
 }
 
 
+# Which env vars hold each flight source's secrets (mirror _PROVIDER_ENV_KEYS).
+_SOURCE_ENV_KEYS: dict[str, dict[str, tuple[str, ...]]] = {
+    "travelpayouts": {
+        "api_key": ("TRAVELPAYOUTS_API_KEY", "TRAVELPAYOUTS_TOKEN"),
+        "marker": ("TRAVELPAYOUTS_MARKER",),
+    },
+}
+
+
 @dataclass(frozen=True)
 class ResolvedLLMConfig:
     """Fully resolved provider configuration used by client factories."""
@@ -40,6 +49,18 @@ class ResolvedLLMConfig:
     options: dict[str, Any] = field(default_factory=dict)
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ResolvedSourceConfig:
+    """Fully resolved flight-source configuration used by the source factory."""
+
+    source: str
+    base_url: str
+    currency: str = "USD"
+    options: dict[str, Any] = field(default_factory=dict)
+    api_key: Optional[str] = None
+    marker: Optional[str] = None
 
 
 def _repo_root() -> Path:
@@ -54,12 +75,16 @@ def _first_env(env_keys: tuple[str, ...]) -> Optional[str]:
     return None
 
 
-def _load_models_yaml(config_path: Path) -> dict[str, Any]:
+def _load_yaml_mapping(config_path: Path) -> dict[str, Any]:
     with config_path.open("r", encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
     if not isinstance(raw, dict):
-        raise ValueError(f"Invalid models config format in {config_path}")
+        raise ValueError(f"Invalid config format in {config_path}")
     return raw
+
+
+def _load_models_yaml(config_path: Path) -> dict[str, Any]:
+    return _load_yaml_mapping(config_path)
 
 
 def resolve_llm_config(
@@ -107,4 +132,56 @@ def resolve_llm_config(
     )
 
 
-__all__ = ["ResolvedLLMConfig", "resolve_llm_config"]
+def resolve_source_config(
+    config_path: Optional[Path] = None,
+    *,
+    source_override: Optional[str] = None,
+) -> ResolvedSourceConfig:
+    """Resolve flight source, base URL, and client params from config + env."""
+    load_dotenv()
+
+    path = config_path or (_repo_root() / "config" / "sources.yaml")
+    config = _load_yaml_mapping(path)
+
+    sources = config.get("sources") or {}
+    if not isinstance(sources, dict) or not sources:
+        raise ValueError(f"No sources configured in {path}")
+
+    selected_source = (
+        source_override
+        or os.getenv("FLIGHT_SOURCE")
+        or config.get("default_source")
+    )
+    if not selected_source:
+        raise ValueError("No flight source configured (set default_source or FLIGHT_SOURCE)")
+
+    source_name = str(selected_source).strip().lower()
+    if source_name not in sources:
+        supported = ", ".join(sorted(sources.keys()))
+        raise ValueError(f"Unknown source '{source_name}'. Supported: {supported}")
+
+    source_cfg = sources[source_name] or {}
+    base_url = source_cfg.get("base_url")
+    if not base_url:
+        raise ValueError(f"Source '{source_name}' is missing required 'base_url'")
+
+    currency = str(source_cfg.get("currency", "USD")).strip().upper() or "USD"
+    options = dict(source_cfg.get("options") or {})
+    env_keys = _SOURCE_ENV_KEYS.get(source_name, {})
+
+    return ResolvedSourceConfig(
+        source=source_name,
+        base_url=str(base_url),
+        currency=currency,
+        options=options,
+        api_key=_first_env(env_keys.get("api_key", ())),
+        marker=_first_env(env_keys.get("marker", ())),
+    )
+
+
+__all__ = [
+    "ResolvedLLMConfig",
+    "ResolvedSourceConfig",
+    "resolve_llm_config",
+    "resolve_source_config",
+]

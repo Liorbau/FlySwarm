@@ -1,5 +1,15 @@
 """Shared utilities for FlySwarm apps and tooling."""
 
-from .config import ResolvedLLMConfig, resolve_llm_config
+from .config import (
+    ResolvedLLMConfig,
+    ResolvedSourceConfig,
+    resolve_llm_config,
+    resolve_source_config,
+)
 
-__all__ = ["ResolvedLLMConfig", "resolve_llm_config"]
+__all__ = [
+    "ResolvedLLMConfig",
+    "ResolvedSourceConfig",
+    "resolve_llm_config",
+    "resolve_source_config",
+]
