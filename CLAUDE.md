@@ -10,7 +10,7 @@ Guidance for AI coding agents working in this repository.
 built during Masterschool's "Agentic Workshop" fellowship, where the end goal is to
 present a working agent-swarm product.
 
-### Ultimate vision (long-term — DO NOT build this yet)
+### Ultimate vision (now in active development)
 A multi-agent flight-price monitoring system delivered over Telegram, coordinated by
 an orchestrator:
 
@@ -22,31 +22,44 @@ an orchestrator:
 
 ---
 
-## 2. Current session scope (STRICT)
+## 2. Project scope
 
-> **CRITICAL:** Do **NOT** build the backend swarm or connect to any live flight API
-> in this session.
+> **⚠️ LEGACY — no longer a limitation.** The "landing-page-only, do not build the
+> backend swarm" rule below was a *starting* constraint for the kickoff session. That
+> phase is **complete**. The project is now free to build swarm infrastructure
+> (orchestration, agents, storage, live API integrations). Treat the boxed text below
+> as historical context only.
 
-The only deliverable right now is a **Simple Landing Page** that introduces and
-validates the product idea. It must implement **exactly three features**:
+<details>
+<summary>Legacy kickoff constraint (no longer in force)</summary>
+
+> **CRITICAL (legacy):** Do **NOT** build the backend swarm or connect to any live
+> flight API in this session.
+
+The only deliverable for the kickoff session was a **Simple Landing Page** that
+introduced and validated the product idea, implementing **exactly three features**:
 
 1. **Features List** — explains how the Flight Monitoring Swarm works.
 2. **Interactive Button** — e.g. a "Try Demo" or other interactive UI component.
-3. **Waitlist / Signup Form** — captures user emails and appends them to a local
-   `emails.json` file via a minimal local backend.
+3. **Waitlist / Signup Form** — captured user emails to a local `emails.json` file.
 
-### Constraints
-- The artifact must be ready to commit to a **public Git repository**.
+</details>
+
+### Standing constraints (still in force)
+- Artifacts must stay ready to commit to a **public Git repository**.
 - `emails.json` holds PII and is **git-ignored** — never commit captured emails.
 - Secrets live in `.env` (git-ignored); see `.env.example` for the template.
 
 ---
 
-## 3. The Three-Layer Experiment (3-hour total budget)
+## 3. The Three-Layer Experiment (LEGACY — kickoff exercise)
 
-The landing page is built three separate times, once per workflow "layer", to compare
-the experience. Work on **only the layer the user explicitly selects**; keep the other
-layers' context in mind but do not act on them.
+> **⚠️ LEGACY — no longer a limitation.** This three-layer exercise was part of the
+> kickoff session and is **done**. You are no longer restricted to one selected
+> "layer." Kept below for historical context.
+
+The landing page was built three separate times, once per workflow "layer", to compare
+the experience.
 
 ### Layer 1 — Raw LLM (API, no tools) · ≤ 1 hr
 - Pretend you have **zero tools**: no filesystem, no terminal, no execution/verification.
@@ -99,9 +112,10 @@ vendor SDK directly.
   role/agent, and tunables (temperature, max tokens). The active provider may also be
   overridden via an env var such as `LLM_PROVIDER` for quick switching.
 
-> Note: this abstraction is **infrastructure for the swarm**, not a current-session
-> deliverable. Keep it in mind so the landing-page code stays compatible, but do not
-> build the model layer during the landing-page session unless explicitly asked.
+> Note: this abstraction is **core infrastructure for the swarm** and is in active
+> use (see `harness/` and `orchestrator/`). Build against it freely; the earlier
+> "don't build the model layer during the landing-page session" restriction is legacy
+> and no longer applies.
 
 ---
 
@@ -119,10 +133,10 @@ later **without touching agent/business logic**. Concretely:
 - No vendor-specific calls leak into the rest of the codebase.
 
 ### Phased plan
-- **Current session (landing page):** no DB — emails go to a local **`emails.json`**
-  flat file. Keep it this way for the landing-page scope.
-- **Local swarm dev:** **SQLite** — single local file, no server, no cost. Default for
-  development.
+- **Kickoff (landing page) — LEGACY:** emails went to a local **`emails.json`** flat
+  file. This was the kickoff-only choice; it no longer constrains new work.
+- **Local swarm dev (current):** **SQLite** — single local file, no server, no cost.
+  Default for development.
 - **Hosted later (still free):** **Postgres** on a free tier (**Supabase** or **Neon**)
   when a real client/server DB is needed. SQLite → Postgres is the intended upgrade path.
 
@@ -134,8 +148,9 @@ later **without touching agent/business logic**. Concretely:
 - Prefer SQL-compatible tooling (e.g. Prisma/Drizzle for Node, SQLAlchemy for Python)
   so the same schema works across SQLite and Postgres.
 
-> Note: this is swarm infrastructure, not a current-session deliverable. The landing
-> page stays on `emails.json`; do not introduce a DB unless explicitly asked.
+> Note: this is swarm infrastructure and is now fair game to build. The legacy landing
+> page stays on `emails.json`, but new swarm work should use the storage abstraction
+> (SQLite locally, Postgres later) — no need to ask first.
 
 ---
 
@@ -171,15 +186,18 @@ system, while allowing both to reuse shared contracts/domain logic.
 ## 7. "The harness" — what the user means
 
 The user built a **harness** during class. Whenever they reference "the harness" or
-"my harness", they mean that custom agent environment/tooling. It becomes directly
-relevant at **Layer 2** and **Layer 3**. When the work reaches a point that needs the
-harness, **flag it to the user** rather than assuming or inventing its behavior.
+"my harness", they mean that custom agent environment/tooling (now in `harness/`, with
+the skills orchestration layer in `orchestrator/`). It is general swarm infrastructure.
+When the work reaches a point that needs the harness, prefer reusing it; if its
+behavior is genuinely unclear, **flag it to the user** rather than inventing it.
 
 ---
 
 ## 8. Working agreement
 
-- Stay strictly within the **current session scope** (landing page) and the **selected layer**.
-- Do not scaffold or implement future swarm agents, DBs, or live API integrations.
+- The landing-page-only scope and per-layer restriction are **legacy**; building swarm
+  agents, storage, orchestration, and live API integrations is now in scope.
+- Keep new work behind the established abstractions (contracts → adapters, config-driven
+  provider/DB swaps); respect the §6 boundary rules.
 - Keep the project public-repo-safe: no secrets, no real user data committed.
-- Ask before expanding scope or taking destructive actions.
+- Ask before destructive actions; otherwise proceed and note your decisions.
