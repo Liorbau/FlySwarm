@@ -1,0 +1,21 @@
+name: keep-alive
+
+# Pings the deployed FlySwarm health endpoint so the free Render web service
+# doesn't sleep. Free for public repos. Scheduled workflows run only from the
+# default branch (main), so this activates once this branch is merged.
+#
+# Note: GitHub may delay scheduled runs under load, and disables schedules after
+# ~60 days of repo inactivity. For strict timing, an external pinger (UptimeRobot)
+# is an alternative.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch: {}        # allow manual runs
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: curl -fsS --max-time 60 https://flyswarm.onrender.com/ || true
