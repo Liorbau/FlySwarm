@@ -15,8 +15,8 @@ from typing import Callable
 
 from harness.tools import ToolSet
 from packages.contracts.src.storage import Repository
-from packages.domain.src import MonitoringCriterion, SearchQuery
-from packages.domain.src.policies import compute_expiry
+from packages.domain.src import LESSON, MonitoringCriterion, SearchQuery
+from packages.domain.src.policies import compute_expiry, route_insight_text
 
 # ── tool schemas (static; bound to a user at build time) ─────────────────────
 
@@ -77,6 +77,30 @@ _DEACTIVATE_SCHEMA = {
                 "criterion_id": {"type": "integer", "description": "Id of the criterion to deactivate."}
             },
             "required": ["criterion_id"],
+        },
+    },
+}
+
+_INSIGHT_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "route_insight",
+        "description": (
+            "Look up what the swarm has learned about a route (typical prices and "
+            "past lessons) before saving. Use it to sanity-check a user's target and "
+            "give data-informed guidance. Returns null when nothing is known yet."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "origin": {"type": "string", "description": "Origin IATA code."},
+                "destination": {"type": "string", "description": "Destination IATA code."},
+                "target_price": {
+                    "type": "number",
+                    "description": "The user's target, to check against typical prices.",
+                },
+            },
+            "required": ["origin", "destination"],
         },
     },
 }
@@ -175,14 +199,34 @@ def make_deactivate_criterion(repo: Repository, user_id: str) -> Callable[[dict]
     return execute
 
 
+def make_route_insight(repo: Repository) -> Callable[[dict], str]:
+    def execute(args: dict) -> str:
+        origin = (args.get("origin") or "").strip()
+        destination = (args.get("destination") or "").strip()
+        if not origin or not destination:
+            return _err("origin and destination are required")
+        target_price = args.get("target_price")
+        try:
+            target_price = float(target_price) if target_price is not None else None
+        except (TypeError, ValueError):
+            target_price = None
+        history = repo.price_history(origin, destination, limit=500)
+        lessons = repo.learnings_for_route(origin, destination, kind=LESSON, limit=3)
+        insight = route_insight_text(history, lessons, target_price=target_price)
+        return json.dumps({"insight": insight})
+
+    return execute
+
+
 def build_criteria_toolset(repo: Repository, user_id: str) -> ToolSet:
     """Assemble the criteria tools, bound to one user, into a harness ToolSet."""
     return ToolSet(
-        schemas=[_SAVE_SCHEMA, _LIST_SCHEMA, _DEACTIVATE_SCHEMA],
+        schemas=[_SAVE_SCHEMA, _LIST_SCHEMA, _DEACTIVATE_SCHEMA, _INSIGHT_SCHEMA],
         registry={
             "save_criterion": make_save_criterion(repo, user_id),
             "list_criteria": make_list_criteria(repo, user_id),
             "deactivate_criterion": make_deactivate_criterion(repo, user_id),
+            "route_insight": make_route_insight(repo),
         },
     )
 

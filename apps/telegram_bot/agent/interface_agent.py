@@ -36,6 +36,11 @@ Rules:
 - You MUST have BOTH origin and destination before saving. If either is missing or \
 genuinely ambiguous, ask ONE brief clarifying question and do NOT call \
 save_criterion yet.
+- Before saving, you MAY call route_insight(origin, destination, target_price) to \
+see what the swarm has learned about the route (typical prices, past lessons). If \
+the user's target looks unrealistic (e.g. below the lowest price ever seen), briefly \
+say so and suggest a more realistic number — but still save what they asked for \
+unless they change it. If nothing is known yet, just save.
 - Once you have origin + destination, call save_criterion with whatever optional \
 fields you parsed; pass the user's original phrasing as `label`.
 - Use list_criteria / deactivate_criterion when the user asks what they're tracking \

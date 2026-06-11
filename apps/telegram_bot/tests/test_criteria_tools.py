@@ -83,5 +83,22 @@ def test_build_interface_agent_wires_product_tools(repo):
         "save_criterion",
         "list_criteria",
         "deactivate_criterion",
+        "route_insight",
     }
     assert "2026-06-11" in agent.system_prompt  # date injected
+
+
+def test_route_insight_tool_summarizes_history(repo):
+    from datetime import datetime, timezone
+
+    from packages.domain.src import Money, PriceObservation
+
+    for p in (400, 350, 380):
+        repo.record_observation(
+            PriceObservation("TLV", "LON", Money(p, "USD"), observed_at=datetime(2026, 6, 1, tzinfo=timezone.utc))
+        )
+    ts = build_criteria_toolset(repo, "u1")
+    out = json.loads(ts.registry["route_insight"]({"origin": "TLV", "destination": "LON", "target_price": 100}))
+    assert out["insight"] is not None
+    assert "low 350" in out["insight"]
+    assert "below the lowest" in out["insight"]  # target 100 < low 350 -> warning
