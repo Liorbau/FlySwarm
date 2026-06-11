@@ -8,6 +8,7 @@ port to Postgres later (SQLite -> Postgres is a config + ``DATABASE_URL`` swap).
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,7 @@ from typing import Optional
 
 from packages.domain.src import (
     Alert,
+    Learning,
     Money,
     MonitoringCriterion,
     PriceObservation,
@@ -63,8 +65,19 @@ CREATE TABLE IF NOT EXISTS alerts (
     sent_at      TEXT    NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS learnings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind        TEXT NOT NULL,
+    origin      TEXT,
+    destination TEXT,
+    text        TEXT NOT NULL,
+    data        TEXT,
+    created_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_obs_route ON price_observations (origin, destination);
 CREATE INDEX IF NOT EXISTS idx_alerts_dedup ON alerts (criterion_id, offer_key);
+CREATE INDEX IF NOT EXISTS idx_learn_route ON learnings (origin, destination);
 """
 
 
@@ -300,11 +313,77 @@ class SqliteRepository:
         ).fetchone()
         return row is not None
 
+    def alerts_for_criterion(self, criterion_id: int) -> list[Alert]:
+        rows = self._conn.execute(
+            "SELECT * FROM alerts WHERE criterion_id = ? ORDER BY sent_at DESC",
+            (criterion_id,),
+        ).fetchall()
+        return [_row_to_alert(r) for r in rows]
+
     def recent_alerts(self, *, limit: int = 50) -> list[Alert]:
         rows = self._conn.execute(
             "SELECT * FROM alerts ORDER BY sent_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [_row_to_alert(r) for r in rows]
+
+    # ── learnings (self-improving memory) ────────────────────────────────────
+
+    def record_learning(self, learning: Learning) -> Learning:
+        created_at = learning.created_at or _now()
+        cur = self._conn.execute(
+            """
+            INSERT INTO learnings (kind, origin, destination, text, data, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                learning.kind,
+                learning.origin,
+                learning.destination,
+                learning.text,
+                json.dumps(learning.data) if learning.data is not None else None,
+                _iso(created_at),
+            ),
+        )
+        self._conn.commit()
+        return Learning(
+            kind=learning.kind,
+            text=learning.text,
+            origin=learning.origin,
+            destination=learning.destination,
+            data=learning.data,
+            id=int(cur.lastrowid),
+            created_at=created_at,
+        )
+
+    def learnings_for_route(
+        self,
+        origin: str,
+        destination: str,
+        *,
+        kind: Optional[str] = None,
+        limit: int = 20,
+    ) -> list[Learning]:
+        origin = origin.strip().upper()
+        destination = destination.strip().upper()
+        if kind is None:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM learnings
+                WHERE origin = ? AND destination = ?
+                ORDER BY created_at DESC LIMIT ?
+                """,
+                (origin, destination, limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM learnings
+                WHERE origin = ? AND destination = ? AND kind = ?
+                ORDER BY created_at DESC LIMIT ?
+                """,
+                (origin, destination, kind, limit),
+            ).fetchall()
+        return [_row_to_learning(r) for r in rows]
 
 
 # ── row -> entity mappers ────────────────────────────────────────────────────
@@ -352,6 +431,18 @@ def _row_to_alert(row: sqlite3.Row) -> Alert:
         booking_link=row["booking_link"],
         id=row["id"],
         sent_at=_parse(row["sent_at"]),
+    )
+
+
+def _row_to_learning(row: sqlite3.Row) -> Learning:
+    return Learning(
+        kind=row["kind"],
+        text=row["text"],
+        origin=row["origin"],
+        destination=row["destination"],
+        data=json.loads(row["data"]) if row["data"] else None,
+        id=row["id"],
+        created_at=_parse(row["created_at"]),
     )
 
 

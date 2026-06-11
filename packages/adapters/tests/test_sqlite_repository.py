@@ -10,7 +10,10 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from packages.domain.src import (
+    LESSON,
+    WIN,
     Alert,
+    Learning,
     Money,
     MonitoringCriterion,
     PriceObservation,
@@ -156,6 +159,31 @@ def test_alert_dedup_and_recent(repo):
     assert len(recent) == 1
     assert recent[0].offer_key == "offer-abc"
     assert recent[0].sent_at is not None
+
+
+def test_alerts_for_criterion(repo):
+    crit = repo.save_criterion(MonitoringCriterion(user_id="u1", query=SearchQuery("TLV", "LON")))
+    repo.record_alert(Alert(criterion_id=crit.id, offer_key="k1", price=Money(250, "USD")))
+    repo.record_alert(Alert(criterion_id=crit.id, offer_key="k2", price=Money(240, "USD")))
+    repo.record_alert(Alert(criterion_id=999, offer_key="k3", price=Money(100, "USD")))
+
+    got = repo.alerts_for_criterion(crit.id)
+    assert {a.offer_key for a in got} == {"k1", "k2"}
+
+
+def test_record_and_query_learnings_by_kind(repo):
+    repo.record_learning(Learning(kind=WIN, origin="TLV", destination="LON", text="deal at 300", data={"price": 300}))
+    repo.record_learning(Learning(kind=LESSON, origin="TLV", destination="LON", text="target never met"))
+    repo.record_learning(Learning(kind=WIN, origin="TLV", destination="NYC", text="other route"))
+
+    all_route = repo.learnings_for_route("tlv", "lon")
+    assert len(all_route) == 2  # both kinds, route-scoped
+
+    lessons = repo.learnings_for_route("TLV", "LON", kind=LESSON)
+    assert len(lessons) == 1 and lessons[0].text == "target never met"
+
+    wins = repo.learnings_for_route("TLV", "LON", kind=WIN)
+    assert len(wins) == 1 and wins[0].data == {"price": 300}  # JSON round-trips
 
 
 def test_resolve_storage_config_defaults_to_sqlite():

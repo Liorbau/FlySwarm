@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Protocol, runtime_checkable
 
-from packages.domain.src import Alert, MonitoringCriterion, PriceObservation
+from packages.domain.src import Alert, Learning, MonitoringCriterion, PriceObservation
 
 
 @runtime_checkable
@@ -83,9 +83,30 @@ class Repository(Protocol):
         """True if this criterion was already alerted for this offer key."""
         ...
 
+    def alerts_for_criterion(self, criterion_id: int) -> list[Alert]:
+        """All alerts sent for one criterion (used by reflection)."""
+        ...
+
     def recent_alerts(self, *, limit: int = 50) -> list[Alert]:
         """Most recently sent alerts, newest first."""
         ...
 
+    # ── learnings (self-improving memory) ────────────────────────────────────
 
-__all__ = ["Repository", "Alert", "MonitoringCriterion", "PriceObservation"]
+    def record_learning(self, learning: Learning) -> Learning:
+        """Persist a win/lesson, returning it with ``id``/``created_at`` set."""
+        ...
+
+    def learnings_for_route(
+        self,
+        origin: str,
+        destination: str,
+        *,
+        kind: Optional[str] = None,
+        limit: int = 20,
+    ) -> list[Learning]:
+        """Learnings for a route (optionally filtered by kind), newest first."""
+        ...
+
+
+__all__ = ["Repository", "Alert", "Learning", "MonitoringCriterion", "PriceObservation"]
