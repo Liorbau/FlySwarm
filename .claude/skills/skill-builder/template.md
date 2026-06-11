@@ -53,6 +53,7 @@ Copy this checklist and track progress:
 - [ ] Step 1: <first action>
 - [ ] Step 2: <next action>
 - [ ] Step 3: <verify>
+- [ ] Gotchas: capture the non-obvious failure points (highest-signal section)
 \`\`\`
 
 ### Step 1 — <name>
@@ -64,6 +65,30 @@ guessing.>
 
 ### Step 3 — Verify
 <How a run is checked: fixture/test/manual review. State the gate that must pass.>
+
+## Gotchas (highest-signal — keep, don't delete)
+
+<The single most valuable part of a skill. List the non-obvious failure points THIS
+task actually hits — the things a smart agent gets wrong by default. Build from real
+failures, not hypotheticals. Examples of the shape:>
+
+- <Field/name mapping that differs from the obvious one (e.g. vendor calls it `dt`,
+  canonical is `departure_datetime`).>
+- <A default that's wrong for us (e.g. API defaults to RUB; we always force USD).>
+- <Append-only / version-check / state-verification quirk.>
+- <An env or path difference between local and CI.>
+
+Start with one real gotcha; add to this list every time the skill hits a new edge case.
+
+## State (optional — only if the skill remembers across runs)
+
+<If the skill needs persistence (logs, deltas, "remember last run"), store it under
+`${CLAUDE_PLUGIN_DATA}` (append-only log, JSON, or SQLite). Otherwise delete this.>
+
+## Setup config (optional — only if the skill needs user configuration)
+
+<Store settings in `config.json`. If it's missing, prompt the user with
+`AskUserQuestion` (structured choices) rather than guessing. Otherwise delete this.>
 
 ## Where things live (delete if the skill doesn't touch the architecture)
 

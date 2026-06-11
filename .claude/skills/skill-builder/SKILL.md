@@ -68,7 +68,11 @@ Resolve these one at a time. For each, **recommend an answer** and **explore the
 codebase/docs instead of asking** when the answer is discoverable. Ask the user
 only when blocked or when the choice is product-significant.
 
-- **Purpose**: the one specific task this skill performs.
+- **Purpose**: the one specific task this skill performs. Sanity-check it against
+  the common skill categories — library/API reference, **product verification**
+  (highest measurable impact), data fetching/analysis, scaffolding, code
+  quality/review, CI/CD, runbooks, infra ops. A skill that spans several confuses
+  invocation; keep it to one.
 - **Trigger scenarios (WHEN)**: concrete phrases/situations that should invoke it,
   plus any **negative triggers** (when *not* to use it). These shape the description.
 - **Name**: lowercase/hyphens, `^[a-z0-9-]{1,64}$`, **must equal the directory
@@ -111,6 +115,11 @@ Apply all three rule sets.
 - ≤ 1024 chars; **no XML tags** (`<`/`>`); keep frontmatter ~100 words.
 
 **Body authoring**
+- **Gotchas are the highest-signal content** — the part that most improves output.
+  Give the skill a **Gotchas** section listing the non-obvious failure points the
+  task actually hits (field-name mismatches, wrong-for-us defaults, append-only /
+  state-verification quirks, local-vs-CI differences). Build them from *real*
+  failures, not hypotheticals. Start with one and grow the list as edge cases appear.
 - **Concise**: assume a smart agent; only add what it doesn't know.
 - **Imperative voice** ("Run…", "Map…"), and **explain the why**, not just the what,
   so the agent adapts to edge cases.
@@ -129,6 +138,16 @@ Apply all three rule sets.
   vendor shapes. Provider/source/storage swaps stay **config-only**.
 - Stay within current session scope (`CLAUDE.md` §2) and the selected layer; don't
   scaffold future swarm agents/DBs/live APIs unless explicitly asked.
+
+**Advanced patterns (reach for these only when the task needs them)**
+- **State / memory**: if the skill must remember across runs (logs, deltas, "since
+  last run"), persist under `${CLAUDE_PLUGIN_DATA}` — append-only log, JSON, or
+  SQLite. Don't invent ad-hoc files elsewhere.
+- **Scoped hooks**: a `PreToolUse` hook scoped to the skill (not global) can guard
+  destructive ops while it's active (e.g. block `rm -rf`/`DROP TABLE`), or log
+  invocations to spot undertriggering. Use sparingly.
+- **Setup config**: put user-configurable settings in `config.json`; if it's
+  missing, prompt with `AskUserQuestion` rather than guessing.
 
 **Optional frontmatter (use when it helps)**
 - `allowed-tools`: pre-approve tools while active; **always scope `Bash`**, e.g.
@@ -154,11 +173,17 @@ The validator is mechanical. Also **test on 2–3 realistic prompts**, watch how
 skill triggers and behaves, then tighten the description and prune anything that
 didn't help. Capture recurring mistakes back into the skill.
 
+Skills mature by accretion: it's fine to ship a small skill with a single gotcha,
+then grow its **Gotchas** section every time it hits a new edge case. Don't gold-plate
+up front — start lean and let real failures drive what gets added.
+
 ## Anti-patterns
 
 - ❌ Vague names (`helper`, `utils`) or vague/first-person descriptions.
 - ❌ Putting "when to use" info only in the body instead of the description.
 - ❌ Verbose explanations of things the agent already knows; SKILL.md over 500 lines.
+- ❌ Omitting the **Gotchas** section, or filling it with the obvious instead of the
+  real failure points the task hits.
 - ❌ Deeply nested references; reference files > 300 lines without a table of contents.
 - ❌ Bare `Bash` in `allowed-tools`; time-sensitive instructions; mixed terminology.
 - ❌ Embedding secrets/PII or letting a generated skill bypass FlySwarm boundaries.
