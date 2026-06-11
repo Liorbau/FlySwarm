@@ -63,6 +63,20 @@ class ResolvedSourceConfig:
     marker: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class ResolvedStorageConfig:
+    """Fully resolved storage configuration used by the repository factory.
+
+    ``database_url`` (from ``.env``) takes precedence for server engines like
+    Postgres; SQLite uses ``options['sqlite_path']``. Swapping engines is a
+    config/credentials change only.
+    """
+
+    backend: str
+    options: dict[str, Any] = field(default_factory=dict)
+    database_url: Optional[str] = None
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
@@ -179,9 +193,59 @@ def resolve_source_config(
     )
 
 
+def resolve_storage_config(
+    config_path: Optional[Path] = None,
+    *,
+    backend_override: Optional[str] = None,
+) -> ResolvedStorageConfig:
+    """Resolve the storage backend and its params from config + environment.
+
+    Reads ``config/storage.yaml`` (non-secret routing) and layers ``.env`` over
+    it. The active backend may be overridden via the ``STORAGE_BACKEND`` env var
+    or the ``backend_override`` argument. ``DATABASE_URL`` (secret) is read from
+    the environment for server engines.
+    """
+    load_dotenv()
+
+    path = config_path or (_repo_root() / "config" / "storage.yaml")
+    config = _load_yaml_mapping(path)
+
+    backends = config.get("backends") or {}
+    if not isinstance(backends, dict) or not backends:
+        raise ValueError(f"No storage backends configured in {path}")
+
+    # NOTE: distinct from the legacy demo-landing's STORAGE_BACKEND (json|sqlite)
+    # to avoid a namespace collision; the swarm uses SWARM_STORAGE_BACKEND.
+    selected_backend = (
+        backend_override
+        or os.getenv("SWARM_STORAGE_BACKEND")
+        or config.get("default_backend")
+    )
+    if not selected_backend:
+        raise ValueError(
+            "No storage backend configured (set default_backend or SWARM_STORAGE_BACKEND)"
+        )
+
+    backend_name = str(selected_backend).strip().lower()
+    if backend_name not in backends:
+        supported = ", ".join(sorted(backends.keys()))
+        raise ValueError(f"Unknown storage backend '{backend_name}'. Supported: {supported}")
+
+    backend_cfg = backends[backend_name] or {}
+    options = dict(backend_cfg.get("options") or {})
+
+    return ResolvedStorageConfig(
+        backend=backend_name,
+        options=options,
+        database_url=_first_env(("DATABASE_URL",)),
+    )
+
+
 __all__ = [
     "ResolvedLLMConfig",
     "ResolvedSourceConfig",
+    "ResolvedStorageConfig",
     "resolve_llm_config",
     "resolve_source_config",
+    "resolve_storage_config",
 ]

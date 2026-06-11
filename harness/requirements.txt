@@ -1,9 +1,0 @@
-# FlySwarm agent harness dependencies
-
-# ── Runtime ──────────────────────────────────────────────
-litellm          # provider-agnostic, OpenAI-style completion + tool calling
-pyyaml           # parse config/models.yaml
-python-dotenv    # load secrets from .env
-
-# ── Dev ──────────────────────────────────────────────────
-pytest           # harness unit / smoke tests

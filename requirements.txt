@@ -1,0 +1,13 @@
+# FlySwarm dependencies — single source of truth for the swarm (harness,
+# orchestrator, apps, packages). Flight + Telegram I/O use the Python stdlib
+# (urllib), so only these are needed.
+#
+# (apps/demo-landing is a self-contained legacy app with its own requirements.)
+
+# ── Runtime ──────────────────────────────────────────────
+litellm>=1.40       # provider-agnostic, OpenAI-style completion + tool calling
+pyyaml>=6.0         # parse config/*.yaml
+python-dotenv>=1.0  # load secrets from .env
+
+# ── Dev (tests) ──────────────────────────────────────────
+pytest>=7.0

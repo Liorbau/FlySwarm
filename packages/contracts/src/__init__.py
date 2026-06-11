@@ -10,15 +10,20 @@ from .llm_provider import (
     ToolSchema,
     Usage,
 )
+from .storage import Alert, MonitoringCriterion, PriceObservation, Repository
 
 __all__ = [
+    "Alert",
     "AssistantMessage",
     "CompletionResult",
     "FlightOffer",
     "FlightSource",
     "LLMClient",
     "Message",
+    "MonitoringCriterion",
     "Money",
+    "PriceObservation",
+    "Repository",
     "SearchQuery",
     "ToolCall",
     "ToolSchema",
