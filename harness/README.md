@@ -13,7 +13,7 @@ The harness is a local autonomous loop that uses FlySwarm's provider abstraction
 ## Setup
 
 ```bash
-python3 -m pip install -r harness/requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 ## Provider configuration
