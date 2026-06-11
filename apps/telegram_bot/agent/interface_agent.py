@@ -82,15 +82,19 @@ def handle_message(
     *,
     repo: Optional[Repository] = None,
     today: Optional[str] = None,
+    history: Optional[list[dict]] = None,
     max_steps: int = 6,
 ) -> dict:
     """Run one user message through the interface agent and return the result.
 
-    Stateless per call (no cross-message memory yet — that arrives with the
-    Telegram conversation layer). Returns the user-facing response, whether the
-    agent considered itself done, the run status, and the tool-call breakdown.
+    Pass ``history`` (a list of ``{"role", "content"}`` turns) to carry prior
+    conversation context across messages — the Telegram layer supplies this so
+    clarifying questions work. Returns the user-facing response, whether the agent
+    considered itself done, the run status, and the tool-call breakdown.
     """
     agent = build_interface_agent(user_id, repo=repo, today=today)
+    if history:
+        agent.messages = list(history)
     agent.run(text, max_steps=max_steps, interactive=False)
 
     last = next(
