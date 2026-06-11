@@ -7,7 +7,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from litellm import completion_cost, token_counter
 
-from harness.tools import TOOL_SCHEMAS, TOOL_REGISTRY
+from harness.tools import CODING_TOOLS, ToolSet
 from packages.adapters.src.llm import get_llm_client
 
 load_dotenv()
@@ -40,12 +40,19 @@ class AgentHarness:
         compact_at: Optional[int] = None,
         compact_words: Optional[int] = None,
         max_no_progress_steps: Optional[int] = None,
+        tools: Optional[ToolSet] = None,
+        system_prompt: Optional[str] = None,
     ):
         self.client = get_llm_client(
             provider_override=provider_override,
             model_override=model,
         )
         self.model = getattr(self.client, "model", model or "unknown")
+
+        # Pluggable tool pack + system prompt. Defaults preserve the original
+        # coding-agent behavior; the product agent injects its own ToolSet.
+        self.tools = tools or CODING_TOOLS
+        self.system_prompt = system_prompt or SYSTEM_PROMPT
         self.token_limit = token_limit or DEFAULT_TOKEN_LIMIT
         self.compact_at = compact_at or DEFAULT_COMPACT_AT
         self.compact_words = compact_words or DEFAULT_COMPACT_WORDS
@@ -75,20 +82,20 @@ class AgentHarness:
     # ── token counting ─────────────────────────────────────────────────────────
 
     def _estimate_context_tokens(self) -> int:
-        prompt_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + self.messages
+        prompt_messages = [{"role": "system", "content": self.system_prompt}] + self.messages
         try:
             return int(
                 token_counter(
                     model=self.model,
                     messages=prompt_messages,
-                    tools=TOOL_SCHEMAS,
+                    tools=self.tools.schemas,
                 )
             )
         except TypeError:
             return int(token_counter(model=self.model, messages=prompt_messages))
         except Exception:
             # Fallback estimate when model-specific tokenizers are unavailable.
-            rough_chars = len(json.dumps(prompt_messages)) + len(json.dumps(TOOL_SCHEMAS))
+            rough_chars = len(json.dumps(prompt_messages)) + len(json.dumps(self.tools.schemas))
             return max(1, rough_chars // 4)
 
     # ── compaction ─────────────────────────────────────────────────────────────
@@ -179,8 +186,8 @@ class AgentHarness:
             )
 
         result = self.client.complete(
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.messages,
-            tools=TOOL_SCHEMAS,
+            messages=[{"role": "system", "content": self.system_prompt}] + self.messages,
+            tools=self.tools.schemas,
             tool_choice="auto",
         )
         self._track_usage(result)
@@ -295,7 +302,7 @@ class AgentHarness:
     def _execute_tool(self, tool_call) -> str:
         name = tool_call.name
         args = json.loads(tool_call.arguments)
-        fn   = TOOL_REGISTRY.get(name)
+        fn   = self.tools.registry.get(name)
         if fn is None:
             return json.dumps({"error": f"Unknown tool: {name}"})
         return fn(args)
