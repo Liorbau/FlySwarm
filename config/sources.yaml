@@ -1,0 +1,18 @@
+# ─── FlySwarm flight-source routing (committed, NON-SECRET) ───────────────────
+# Selection & tunables only. API tokens / affiliate markers live in `.env`
+# (git-ignored). A factory turns each source entry into a concrete adapter;
+# callers stay vendor-neutral and depend only on the FlightSource contract.
+#
+# Override the active source at runtime with the `FLIGHT_SOURCE` env var.
+# Project currency default is USD (do NOT inherit a vendor default like RUB).
+
+default_source: travelpayouts
+
+sources:
+  travelpayouts:
+    base_url: https://api.travelpayouts.com
+    currency: USD
+    options:
+      # "cheapest tickets" endpoint; cache-based, ~300 req/min (confirm in dashboard)
+      endpoint: v1/prices/cheap
+      timeout_seconds: 20

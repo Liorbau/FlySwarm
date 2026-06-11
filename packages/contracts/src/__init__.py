@@ -1,5 +1,6 @@
 """Shared provider/repository contracts for FlySwarm."""
 
+from .flight_source import FlightOffer, FlightSource, Money, SearchQuery
 from .llm_provider import (
     AssistantMessage,
     CompletionResult,
@@ -13,8 +14,12 @@ from .llm_provider import (
 __all__ = [
     "AssistantMessage",
     "CompletionResult",
+    "FlightOffer",
+    "FlightSource",
     "LLMClient",
     "Message",
+    "Money",
+    "SearchQuery",
     "ToolCall",
     "ToolSchema",
     "Usage",

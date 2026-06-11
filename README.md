@@ -29,6 +29,7 @@ Backend, harness, and tests are Python-based; model routing is provider-agnostic
 - `packages/adapters/` - swappable implementations (json/sqlite, ollama/cloud, mock/live APIs)
 - `packages/shared/` - shared config/logging/observability utilities
 - `harness/` - autonomous local builder loop and tool registry
+- `orchestrator/` - skills abstraction layer: discovers, plans, runs and verifies skills
 - `config/` - committed non-secret routing and environment config
 - `data/` - local runtime data (git-ignored content)
 - `docs/` - architecture decisions and experiments
@@ -90,6 +91,24 @@ Provider/model override examples:
 ```bash
 python3 -m harness "Run a short planning loop" --provider openai --model openai/gpt-4o
 python3 -m harness "Run a short planning loop" --provider ollama --model ollama_chat/llama3.1
+```
+
+## Run the skills orchestrator
+
+Discovers every skill under `.claude/skills/`, plans which (if any) to use for a goal,
+runs each as an isolated sub-agent, and verifies each skill's input/output. New skills
+are picked up automatically — no code changes.
+
+```bash
+# Preview the plan without executing any skill:
+PYTHONPATH=. python3 -m orchestrator "<goal>" --dry-run
+
+# Execute, with a total token budget across planner + verifier + all skills:
+PYTHONPATH=. python3 -m orchestrator "<goal>" --token-budget 30000
+
+# Enable a disable-model-invocation skill explicitly, or exclude skills:
+PYTHONPATH=. python3 -m orchestrator "<goal>" --only skill-builder
+PYTHONPATH=. python3 -m orchestrator "<goal>" --skip grill-me
 ```
 
 ## Configuration notes
