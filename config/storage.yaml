@@ -1,5 +1,19 @@
-# Non-secret storage routing config
-# Example:
-# backend: json
-# options:
-#   sqlite_path: data/dev.sqlite3
+# ─── FlySwarm storage routing (committed, NON-SECRET) ─────────────────────────
+# Selection & tunables only. Credentials (e.g. Postgres DATABASE_URL) live in
+# `.env` (git-ignored). A factory turns the active backend into a concrete
+# Repository; callers stay engine-neutral and depend only on the Repository
+# contract. Swapping SQLite -> Postgres is a config + `.env` change only.
+#
+# Override the active backend at runtime with the `SWARM_STORAGE_BACKEND` env var
+# (distinct from the legacy demo-landing `STORAGE_BACKEND`, to avoid collision).
+
+default_backend: sqlite
+
+backends:
+  sqlite:
+    options:
+      # Local file DB (no server, no cost). Created on first use.
+      sqlite_path: data/flyswarm.sqlite3
+  postgres:
+    # Connection comes from DATABASE_URL in `.env`; nothing secret here.
+    options: {}
