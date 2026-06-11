@@ -48,6 +48,14 @@ class Repository(Protocol):
     def deactivate_criterion(self, criterion_id: int) -> None:
         ...
 
+    def due_criteria(self, now: Optional[datetime] = None) -> list[MonitoringCriterion]:
+        """Active criteria whose deadline (``expires_at``) has not passed."""
+        ...
+
+    def deactivate_expired(self, now: Optional[datetime] = None) -> list[int]:
+        """Auto-stop active criteria past their deadline; return the stopped ids."""
+        ...
+
     # ── price history ────────────────────────────────────────────────────────
 
     def record_observation(self, observation: PriceObservation) -> PriceObservation:

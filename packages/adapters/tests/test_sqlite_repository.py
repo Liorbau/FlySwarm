@@ -63,6 +63,53 @@ def test_list_active_and_deactivate(repo):
     assert repo.get_criterion(a.id).active is False
 
 
+def test_due_criteria_excludes_expired_and_inactive(repo):
+    now = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    future = repo.save_criterion(
+        MonitoringCriterion(
+            user_id="u1",
+            query=SearchQuery("TLV", "LON"),
+            expires_at=now + timedelta(days=10),
+        )
+    )
+    repo.save_criterion(  # already expired -> not due
+        MonitoringCriterion(
+            user_id="u1",
+            query=SearchQuery("TLV", "NYC"),
+            expires_at=now - timedelta(days=1),
+        )
+    )
+    no_expiry = repo.save_criterion(
+        MonitoringCriterion(user_id="u1", query=SearchQuery("TLV", "PAR"))
+    )  # NULL expiry -> always due
+
+    due_ids = {c.id for c in repo.due_criteria(now=now)}
+    assert due_ids == {future.id, no_expiry.id}
+
+
+def test_deactivate_expired_stops_overdue_only(repo):
+    now = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    overdue = repo.save_criterion(
+        MonitoringCriterion(
+            user_id="u1",
+            query=SearchQuery("TLV", "LON"),
+            expires_at=now - timedelta(hours=1),
+        )
+    )
+    alive = repo.save_criterion(
+        MonitoringCriterion(
+            user_id="u1",
+            query=SearchQuery("TLV", "NYC"),
+            expires_at=now + timedelta(days=5),
+        )
+    )
+
+    stopped = repo.deactivate_expired(now=now)
+    assert stopped == [overdue.id]
+    assert repo.get_criterion(overdue.id).active is False
+    assert repo.get_criterion(alive.id).active is True
+
+
 def test_price_history_orders_newest_first_and_filters_since(repo):
     base = datetime(2026, 6, 1, tzinfo=timezone.utc)
     for i in range(3):

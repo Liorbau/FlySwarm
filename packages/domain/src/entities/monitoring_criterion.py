@@ -33,3 +33,4 @@ class MonitoringCriterion:
     active: bool = True
     id: Optional[int] = None
     created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None  # stop monitoring after this (see policies.expiry)

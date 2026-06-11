@@ -10,11 +10,13 @@ fields). ``build_criteria_toolset`` assembles them into a harness ``ToolSet``.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from typing import Callable
 
 from harness.tools import ToolSet
 from packages.contracts.src.storage import Repository
 from packages.domain.src import MonitoringCriterion, SearchQuery
+from packages.domain.src.policies import compute_expiry
 
 # ── tool schemas (static; bound to a user at build time) ─────────────────────
 
@@ -106,12 +108,15 @@ def make_save_criterion(repo: Repository, user_id: str) -> Callable[[dict], str]
             currency=(args.get("currency") or "USD"),
             one_way=return_date is None,
         )
+        created_at = datetime.now(timezone.utc)
         saved = repo.save_criterion(
             MonitoringCriterion(
                 user_id=user_id,
                 query=query,
                 target_price=target_price,
                 label=(args.get("label") or None),
+                created_at=created_at,
+                expires_at=compute_expiry(query, created_at),
             )
         )
         return json.dumps(
@@ -124,6 +129,7 @@ def make_save_criterion(repo: Repository, user_id: str) -> Callable[[dict], str]
                 "return_date": query.return_date,
                 "currency": query.currency,
                 "target_price": saved.target_price,
+                "monitored_until": saved.expires_at.date().isoformat() if saved.expires_at else None,
             }
         )
 

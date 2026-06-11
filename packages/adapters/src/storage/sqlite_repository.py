@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS criteria (
     target_price REAL,
     label        TEXT,
     active       INTEGER NOT NULL DEFAULT 1,
-    created_at   TEXT    NOT NULL
+    created_at   TEXT    NOT NULL,
+    expires_at   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS price_observations (
@@ -110,8 +111,8 @@ class SqliteRepository:
             """
             INSERT INTO criteria
                 (user_id, origin, destination, depart_date, return_date,
-                 currency, one_way, target_price, label, active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 currency, one_way, target_price, label, active, created_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 criterion.user_id,
@@ -125,6 +126,7 @@ class SqliteRepository:
                 criterion.label,
                 int(criterion.active),
                 _iso(created_at),
+                _iso(criterion.expires_at),
             ),
         )
         self._conn.commit()
@@ -136,6 +138,7 @@ class SqliteRepository:
             active=criterion.active,
             id=int(cur.lastrowid),
             created_at=created_at,
+            expires_at=criterion.expires_at,
         )
 
     def get_criterion(self, criterion_id: int) -> Optional[MonitoringCriterion]:
@@ -163,6 +166,36 @@ class SqliteRepository:
             "UPDATE criteria SET active = 0 WHERE id = ?", (criterion_id,)
         )
         self._conn.commit()
+
+    def due_criteria(self, now: Optional[datetime] = None) -> list[MonitoringCriterion]:
+        """Active criteria whose deadline has not passed — what the scan processes."""
+        now = now or _now()
+        rows = self._conn.execute(
+            """
+            SELECT * FROM criteria
+            WHERE active = 1 AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY id
+            """,
+            (_iso(now),),
+        ).fetchall()
+        return [_row_to_criterion(r) for r in rows]
+
+    def deactivate_expired(self, now: Optional[datetime] = None) -> list[int]:
+        """Auto-stop active criteria past their deadline; returns the ids stopped."""
+        now = now or _now()
+        rows = self._conn.execute(
+            "SELECT id FROM criteria WHERE active = 1 AND expires_at IS NOT NULL AND expires_at <= ?",
+            (_iso(now),),
+        ).fetchall()
+        ids = [int(r["id"]) for r in rows]
+        if ids:
+            self._conn.execute(
+                "UPDATE criteria SET active = 0 WHERE id IN (%s)"
+                % ",".join("?" for _ in ids),
+                ids,
+            )
+            self._conn.commit()
+        return ids
 
     # ── price history ────────────────────────────────────────────────────────
 
@@ -293,6 +326,7 @@ def _row_to_criterion(row: sqlite3.Row) -> MonitoringCriterion:
         active=bool(row["active"]),
         id=row["id"],
         created_at=_parse(row["created_at"]),
+        expires_at=_parse(row["expires_at"]),
     )
 
 
