@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+from apps.swarm_orchestrator.reflect import reflect
 from apps.swarm_orchestrator.scan import DealResult, run_scan
 from packages.adapters.src.storage import get_repository
 from packages.contracts.src.storage import Repository
@@ -93,11 +94,16 @@ def scan_and_notify(
     now: Optional[datetime] = None,
     use_llm: bool = True,
     client=None,
+    learn: bool = True,
 ) -> list[Notification]:
-    """Full pipeline: scan due criteria, judge, then compose deduped notifications."""
+    """Full pipeline: scan due criteria, judge, compose deduped notifications, then
+    reflect (record wins/lessons) so the swarm improves on the next run."""
     repo = repo or get_repository()
     report = run_scan(repo=repo, source=source, now=now, use_llm=use_llm, client=client)
-    return build_notifications(report.deals, repo)
+    notifications = build_notifications(report.deals, repo)
+    if learn:
+        reflect(report, repo)
+    return notifications
 
 
 __all__ = ["Notification", "offer_key", "format_message", "build_notifications", "scan_and_notify"]
