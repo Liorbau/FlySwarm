@@ -1,0 +1,32 @@
+# Render Blueprint for FlySwarm.
+# One service runs the Telegram bot + the periodic scan/notify in a single process
+# (so they share one SQLite file). A health endpoint is bound on $PORT so this can
+# run as a free Render web service.
+#
+# Secrets (sync: false) must be set in the Render dashboard, NOT committed.
+#
+# NOTE on persistence: the free plan's disk is ephemeral, so monitored criteria
+# reset on restart/redeploy. For durable storage, swap to Postgres — set
+# SWARM_STORAGE_BACKEND=postgres + DATABASE_URL (Supabase/Neon free tier). The
+# storage layer is config-swappable, so no code changes are needed.
+
+services:
+  - type: web
+    name: flyswarm
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.run_flyswarm
+    envVars:
+      - key: PYTHONPATH
+        value: "."
+      - key: SCAN_INTERVAL_SECONDS
+        value: "21600"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TRAVELPAYOUTS_API_KEY
+        sync: false
+      - key: TRAVELPAYOUTS_MARKER
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false

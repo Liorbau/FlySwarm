@@ -1,0 +1,5 @@
+# FlySwarm runtime dependencies (deploy).
+# Flight + Telegram I/O use the Python stdlib (urllib); only these are needed.
+litellm>=1.40
+pyyaml>=6.0
+python-dotenv>=1.0
