@@ -13,6 +13,16 @@ def get_repo() -> SignupRepository:
     return get_repository()
 
 
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    """Lightweight liveness probe for uptime monitoring (e.g. Render).
+
+    Intentionally does no work: no storage, agent, or external calls — it only
+    confirms the process is up and serving requests.
+    """
+    return {"status": "healthy"}
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
