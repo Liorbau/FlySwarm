@@ -6,11 +6,17 @@ This is the deploy entrypoint (a composition root): it wires the swarm scan and
 the Telegram delivery together. Running both in one process means a single shared
 SQLite file — inbound criteria and the scheduler's scans see the same data.
 
+This single process is also the only deployment: when ``$PORT`` is set (Render
+web service) it serves the demo landing page + waitlist signup + a ``/health``
+probe by mounting the self-contained ``apps/demo-landing`` FastAPI app — so one
+free service hosts both the public page and the live bot at one URL.
+
 Threads:
 - a scheduler that runs ``scan_and_notify`` every ``SCAN_INTERVAL_SECONDS`` and
   pushes alerts to each user's chat,
-- (optional) a tiny HTTP health server on ``$PORT`` so this can run as a free
-  Render *web service* (which must bind a port),
+- (when ``$PORT`` is set) a uvicorn web server on ``$PORT`` serving the landing
+  page + ``/health`` (FastAPI handles GET and HEAD, so HEAD-based uptime monitors
+  get HTTP 200),
 - the Telegram long-poll loop on the main thread.
 
 Required env: TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, TRAVELPAYOUTS_API_KEY,
@@ -23,7 +29,6 @@ import os
 import threading
 import time
 import warnings
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
 
@@ -37,18 +42,25 @@ from packages.adapters.src.storage import get_repository
 load_dotenv()
 
 
-class _HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):  # noqa: N802
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"ok")
+def _serve_web(port: int) -> None:
+    """Serve the demo-landing FastAPI app (page + signup + /health) on ``port``.
 
-    def log_message(self, *args):  # silence access logs
-        pass
+    Run in a daemon thread; uvicorn skips signal-handler install when off the main
+    thread. The landing app is self-contained, so we add its dir to ``sys.path``
+    and import it lazily (only when running as a web service).
+    """
+    import sys
+    from pathlib import Path
 
+    landing_dir = Path(__file__).resolve().parents[1] / "apps" / "demo-landing"
+    if str(landing_dir) not in sys.path:
+        sys.path.append(str(landing_dir))
 
-def _serve_health(port: int) -> None:
-    HTTPServer(("0.0.0.0", port), _HealthHandler).serve_forever()
+    import uvicorn
+    from backend.main import app as landing_app
+
+    config = uvicorn.Config(landing_app, host="0.0.0.0", port=port, log_level="warning")
+    uvicorn.Server(config).run()
 
 
 def _run_scheduler(client: TelegramClient, interval_seconds: int) -> None:
@@ -78,8 +90,8 @@ def main() -> None:
 
     port = os.getenv("PORT")
     if port:
-        threading.Thread(target=_serve_health, args=(int(port),), daemon=True).start()
-        print(f"[flyswarm] health server on :{port}")
+        threading.Thread(target=_serve_web, args=(int(port),), daemon=True).start()
+        print(f"[flyswarm] web server (landing page + /health) on :{port}")
 
     threading.Thread(target=_run_scheduler, args=(client, interval), daemon=True).start()
     print(f"[flyswarm] scheduler every {interval}s; starting Telegram bot")

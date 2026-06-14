@@ -13,10 +13,11 @@ def get_repo() -> SignupRepository:
     return get_repository()
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check() -> dict[str, str]:
-    """Lightweight liveness probe for uptime monitoring (e.g. Render).
+    """Lightweight liveness probe for uptime monitoring (e.g. Render/UptimeRobot).
 
+    Handles GET and HEAD (HEAD-default monitors must get 200, not 404/501).
     Intentionally does no work: no storage, agent, or external calls — it only
     confirms the process is up and serving requests.
     """

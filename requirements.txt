@@ -1,13 +1,19 @@
 # FlySwarm dependencies — single source of truth for the swarm (harness,
 # orchestrator, apps, packages). Flight + Telegram I/O use the Python stdlib
-# (urllib), so only these are needed.
+# (urllib).
 #
-# (apps/demo-landing is a self-contained legacy app with its own requirements.)
+# The single Render web service (scripts.run_flyswarm) also serves the
+# apps/demo-landing FastAPI page on $PORT, so fastapi/uvicorn live here too.
+# (apps/demo-landing remains self-contained with its own requirements for local
+# standalone runs.)
 
 # ── Runtime ──────────────────────────────────────────────
 litellm>=1.40       # provider-agnostic, OpenAI-style completion + tool calling
 pyyaml>=6.0         # parse config/*.yaml
 python-dotenv>=1.0  # load secrets from .env
+fastapi             # demo-landing web app served by the single web service
+uvicorn[standard]   # ASGI server for the landing page + /health on $PORT
+pydantic[email]     # signup email validation in the landing app
 
 # ── Dev (tests) ──────────────────────────────────────────
 pytest>=7.0
