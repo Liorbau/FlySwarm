@@ -14,6 +14,8 @@ python-dotenv>=1.0  # load secrets from .env
 fastapi             # demo-landing web app served by the single web service
 uvicorn[standard]   # ASGI server for the landing page + /health on $PORT
 pydantic[email]     # signup email validation in the landing app
+psycopg[binary]     # Postgres driver (Supabase) for the durable storage backend
+psycopg-pool        # thread-safe connection pool (repo is shared across 3 threads)
 
 # ── Dev (tests) ──────────────────────────────────────────
 pytest>=7.0

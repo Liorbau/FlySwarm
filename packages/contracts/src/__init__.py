@@ -1,4 +1,6 @@
-"""Shared provider/repository contracts for FlySwarm."""
+"""Shared cross-cutting provider contracts for FlySwarm (model, flight). Storage ports
+live with their domain in ``packages/domain/<domain>/repository.py``.
+"""
 
 from .flight_source import FlightOffer, FlightSource, Money, SearchQuery
 from .llm_provider import (
@@ -10,20 +12,15 @@ from .llm_provider import (
     ToolSchema,
     Usage,
 )
-from .storage import Alert, MonitoringCriterion, PriceObservation, Repository
 
 __all__ = [
-    "Alert",
     "AssistantMessage",
     "CompletionResult",
     "FlightOffer",
     "FlightSource",
     "LLMClient",
     "Message",
-    "MonitoringCriterion",
     "Money",
-    "PriceObservation",
-    "Repository",
     "SearchQuery",
     "ToolCall",
     "ToolSchema",

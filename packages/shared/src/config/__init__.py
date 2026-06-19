@@ -37,6 +37,10 @@ _SOURCE_ENV_KEYS: dict[str, dict[str, tuple[str, ...]]] = {
         "api_key": ("TRAVELPAYOUTS_API_KEY", "TRAVELPAYOUTS_TOKEN"),
         "marker": ("TRAVELPAYOUTS_MARKER",),
     },
+    "amadeus": {
+        "api_key": ("AMADEUS_API_KEY",),
+        "api_secret": ("AMADEUS_API_SECRET",),
+    },
 }
 
 
@@ -61,20 +65,40 @@ class ResolvedSourceConfig:
     options: dict[str, Any] = field(default_factory=dict)
     api_key: Optional[str] = None
     marker: Optional[str] = None
+    api_secret: Optional[str] = None  # e.g. Amadeus OAuth client secret
+
+
+@dataclass(frozen=True)
+class ResolvedSourceComposition:
+    """How multiple flight sources combine (from ``config/sources.yaml``)."""
+
+    mode: str  # "merge" | "failover" | "single"
+    sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class ResolvedStorageConfig:
-    """Fully resolved storage configuration used by the repository factory.
-
-    ``database_url`` (from ``.env``) takes precedence for server engines like
-    Postgres; SQLite uses ``options['sqlite_path']``. Swapping engines is a
-    config/credentials change only.
+    """Resolved storage config for the repository factory. ``database_url`` (from
+    ``.env``) takes precedence for server engines like Postgres; SQLite uses
+    ``options['sqlite_path']``. Swapping engines is config/credentials only.
     """
 
     backend: str
     options: dict[str, Any] = field(default_factory=dict)
     database_url: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ResolvedHarvestConfig:
+    """Resolved harvesting/routes config (non-secret; from ``config/routes.yaml``).
+    ``seed_routes`` are primitive ``(origin, destination)`` tuples (kept domain-free;
+    the orchestrator wraps them in ``Route``).
+    """
+
+    seed_routes: tuple[tuple[str, str], ...] = ()
+    max_routes_per_cycle: int = 20
+    freshness_hours: int = 6
+    prioritize_with_llm: bool = True
 
 
 def _repo_root() -> Path:
@@ -97,10 +121,6 @@ def _load_yaml_mapping(config_path: Path) -> dict[str, Any]:
     return raw
 
 
-def _load_models_yaml(config_path: Path) -> dict[str, Any]:
-    return _load_yaml_mapping(config_path)
-
-
 def resolve_llm_config(
     config_path: Optional[Path] = None,
     *,
@@ -110,7 +130,7 @@ def resolve_llm_config(
     load_dotenv()
 
     path = config_path or (_repo_root() / "config" / "models.yaml")
-    config = _load_models_yaml(path)
+    config = _load_yaml_mapping(path)
 
     providers = config.get("providers") or {}
     if not isinstance(providers, dict) or not providers:
@@ -190,7 +210,27 @@ def resolve_source_config(
         options=options,
         api_key=_first_env(env_keys.get("api_key", ())),
         marker=_first_env(env_keys.get("marker", ())),
+        api_secret=_first_env(env_keys.get("api_secret", ())),
     )
+
+
+def resolve_source_composition(
+    config_path: Optional[Path] = None,
+) -> Optional[ResolvedSourceComposition]:
+    """Resolve the multi-source composition block from ``config/sources.yaml``.
+    Returns None when no ``composition`` is configured (single-source mode).
+    """
+    path = config_path or (_repo_root() / "config" / "sources.yaml")
+    config = _load_yaml_mapping(path)
+    comp = config.get("composition")
+    if not isinstance(comp, dict):
+        return None
+
+    mode = str(comp.get("mode", "single")).strip().lower()
+    sources = tuple(
+        str(s).strip().lower() for s in (comp.get("sources") or []) if str(s).strip()
+    )
+    return ResolvedSourceComposition(mode=mode, sources=sources)
 
 
 def resolve_storage_config(
@@ -198,12 +238,10 @@ def resolve_storage_config(
     *,
     backend_override: Optional[str] = None,
 ) -> ResolvedStorageConfig:
-    """Resolve the storage backend and its params from config + environment.
-
-    Reads ``config/storage.yaml`` (non-secret routing) and layers ``.env`` over
-    it. The active backend may be overridden via the ``STORAGE_BACKEND`` env var
-    or the ``backend_override`` argument. ``DATABASE_URL`` (secret) is read from
-    the environment for server engines.
+    """Resolve the storage backend and its params from config + environment. Reads
+    ``config/storage.yaml`` (non-secret routing) and layers ``.env`` over it; the
+    active backend may be overridden via ``backend_override`` or env. ``DATABASE_URL``
+    (secret) is read from the environment for server engines.
     """
     load_dotenv()
 
@@ -241,11 +279,43 @@ def resolve_storage_config(
     )
 
 
+def resolve_harvest_config(config_path: Optional[Path] = None) -> ResolvedHarvestConfig:
+    """Resolve seed routes + harvest tunables from ``config/routes.yaml`` (non-secret;
+    no env layering). Missing/empty config yields safe defaults (no seed routes ->
+    the orchestrator just harvests watched routes).
+    """
+    path = config_path or (_repo_root() / "config" / "routes.yaml")
+    if not path.exists():
+        return ResolvedHarvestConfig()
+
+    config = _load_yaml_mapping(path)
+
+    seed: list[tuple[str, str]] = []
+    for entry in config.get("seed_routes") or []:
+        if isinstance(entry, dict):
+            origin = str(entry.get("origin", "")).strip().upper()
+            destination = str(entry.get("destination", "")).strip().upper()
+            if origin and destination:
+                seed.append((origin, destination))
+
+    harvest = config.get("harvest") or {}
+    return ResolvedHarvestConfig(
+        seed_routes=tuple(seed),
+        max_routes_per_cycle=int(harvest.get("max_routes_per_cycle", 20)),
+        freshness_hours=int(harvest.get("freshness_hours", 6)),
+        prioritize_with_llm=bool(harvest.get("prioritize_with_llm", True)),
+    )
+
+
 __all__ = [
     "ResolvedLLMConfig",
     "ResolvedSourceConfig",
+    "ResolvedSourceComposition",
     "ResolvedStorageConfig",
+    "ResolvedHarvestConfig",
     "resolve_llm_config",
     "resolve_source_config",
+    "resolve_source_composition",
     "resolve_storage_config",
+    "resolve_harvest_config",
 ]

@@ -1,15 +1,24 @@
-"""Offline tests for the SQLite storage bundle and storage config resolver.
+"""Integration tests for the Postgres storage bundle.
 
-No network, no shared state: each test uses a fresh temp DB file. Data is reached
-through the per-domain repos on the bundle (``.criteria`` / ``.prices`` /
-``.alerts`` / ``.learnings`` / ``.conversations``).
+These prove the per-domain repos round-trip canonical domain objects against a
+real Postgres (e.g. Supabase) — the contract semantics themselves are covered
+offline by ``test_sqlite_repository``.
+
+Auto-skipped unless ``DATABASE_URL`` is set, and isolated in a throwaway schema
+(``flyswarm_test_<pid>``, dropped on teardown) so they never touch real tables.
+
+Run locally::
+
+    SWARM_STORAGE_BACKEND=postgres pytest packages/adapters/tests/test_postgres_repository.py
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from dotenv import load_dotenv
 
 from packages.domain.src import (
     LESSON,
@@ -21,15 +30,29 @@ from packages.domain.src import (
     PriceObservation,
     SearchQuery,
 )
-from packages.adapters.src.storage.sqlite import SqliteStorage
-from packages.shared.src.config import resolve_storage_config
+
+load_dotenv()  # mirror the app: read DATABASE_URL from .env (git-ignored)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+pytestmark = pytest.mark.skipif(
+    not DATABASE_URL, reason="DATABASE_URL not set; skipping Postgres integration tests"
+)
 
 
 @pytest.fixture()
-def repo(tmp_path):
-    r = SqliteStorage(tmp_path / "sub" / "test.sqlite3")  # nested -> tests mkdir
+def repo():
+    # Late import so the psycopg dependency is only required when these run.
+    from packages.adapters.src.storage.postgres import PostgresStorage
+
+    schema = f"flyswarm_test_{os.getpid()}"
+    r = PostgresStorage(DATABASE_URL, schema=schema)
+    # Start from a clean schema even if a prior run died before teardown.
+    with r._pool.connection() as conn:
+        conn.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
     r.initialize()
     yield r
+    with r._pool.connection() as conn:
+        conn.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
     r.close()
 
 
@@ -64,7 +87,6 @@ def test_list_active_and_deactivate(repo):
 
     repo.criteria.deactivate(a.id)
     assert [c.id for c in repo.criteria.list_active()] == [b.id]
-    # get still returns it, just inactive
     assert repo.criteria.get(a.id).active is False
 
 
@@ -77,7 +99,7 @@ def test_due_criteria_excludes_expired_and_inactive(repo):
             expires_at=now + timedelta(days=10),
         )
     )
-    repo.criteria.save(  # already expired -> not due
+    repo.criteria.save(
         MonitoringCriterion(
             user_id="u1",
             query=SearchQuery("TLV", "NYC"),
@@ -86,7 +108,7 @@ def test_due_criteria_excludes_expired_and_inactive(repo):
     )
     no_expiry = repo.criteria.save(
         MonitoringCriterion(user_id="u1", query=SearchQuery("TLV", "PAR"))
-    )  # NULL expiry -> always due
+    )
 
     due_ids = {c.id for c in repo.criteria.due(now=now)}
     assert due_ids == {future.id, no_expiry.id}
@@ -126,7 +148,6 @@ def test_price_history_orders_newest_first_and_filters_since(repo):
                 observed_at=base + timedelta(days=i),
             )
         )
-    # different route should not bleed in
     repo.prices.record(
         PriceObservation("TLV", "NYC", Money(900, "USD"), observed_at=base)
     )
@@ -154,7 +175,6 @@ def test_alert_dedup_and_recent(repo):
         )
     )
     assert repo.alerts.was_alerted(crit.id, "offer-abc") is True
-    # same offer key for a different criterion is not deduped
     assert repo.alerts.was_alerted(crit.id + 999, "offer-abc") is False
 
     recent = repo.alerts.recent()
@@ -173,26 +193,6 @@ def test_alerts_for_criterion(repo):
     assert {a.offer_key for a in got} == {"k1", "k2"}
 
 
-def test_record_and_query_learnings_by_kind(repo):
-    repo.learnings.record(Learning(kind=WIN, origin="TLV", destination="LON", text="deal at 300", data={"price": 300}))
-    repo.learnings.record(Learning(kind=LESSON, origin="TLV", destination="LON", text="target never met"))
-    repo.learnings.record(Learning(kind=WIN, origin="TLV", destination="NYC", text="other route"))
-
-    all_route = repo.learnings.for_route("tlv", "lon")
-    assert len(all_route) == 2  # both kinds, route-scoped
-
-    lessons = repo.learnings.for_route("TLV", "LON", kind=LESSON)
-    assert len(lessons) == 1 and lessons[0].text == "target never met"
-
-    wins = repo.learnings.for_route("TLV", "LON", kind=WIN)
-    assert len(wins) == 1 and wins[0].data == {"price": 300}  # JSON round-trips
-
-
-def test_bundle_exposes_per_domain_repos(repo):
-    for attr in ("criteria", "prices", "alerts", "learnings", "conversations"):
-        assert hasattr(repo, attr)
-
-
 def test_conversation_history_roundtrips_oldest_first(repo):
     repo.conversations.append("chat-1", "user", "hi")
     repo.conversations.append("chat-1", "assistant", "hello!")
@@ -200,22 +200,23 @@ def test_conversation_history_roundtrips_oldest_first(repo):
 
     history = repo.conversations.recent("chat-1", limit=8)
     assert [(m.role, m.content) for m in history] == [("user", "hi"), ("assistant", "hello!")]
-    # window trims to the most recent, still oldest-first
     assert [m.content for m in repo.conversations.recent("chat-1", limit=1)] == ["hello!"]
 
     repo.conversations.clear("chat-1")
     assert repo.conversations.recent("chat-1") == []
-    assert len(repo.conversations.recent("chat-2")) == 1  # other chat untouched
+    assert len(repo.conversations.recent("chat-2")) == 1
 
 
-def test_resolve_storage_config_defaults_to_sqlite(monkeypatch):
-    # Assert the config-file default, independent of any SWARM_STORAGE_BACKEND
-    # override a developer may have in .env (e.g. postgres for Supabase). Neutralize
-    # the .env load too, since resolve_storage_config() calls load_dotenv() itself.
-    import packages.shared.src.config as config_mod
+def test_record_and_query_learnings_by_kind(repo):
+    repo.learnings.record(Learning(kind=WIN, origin="TLV", destination="LON", text="deal at 300", data={"price": 300}))
+    repo.learnings.record(Learning(kind=LESSON, origin="TLV", destination="LON", text="target never met"))
+    repo.learnings.record(Learning(kind=WIN, origin="TLV", destination="NYC", text="other route"))
 
-    monkeypatch.setattr(config_mod, "load_dotenv", lambda *a, **k: None)
-    monkeypatch.delenv("SWARM_STORAGE_BACKEND", raising=False)
-    cfg = resolve_storage_config()
-    assert cfg.backend == "sqlite"
-    assert "sqlite_path" in cfg.options
+    all_route = repo.learnings.for_route("tlv", "lon")
+    assert len(all_route) == 2
+
+    lessons = repo.learnings.for_route("TLV", "LON", kind=LESSON)
+    assert len(lessons) == 1 and lessons[0].text == "target never met"
+
+    wins = repo.learnings.for_route("TLV", "LON", kind=WIN)
+    assert len(wins) == 1 and wins[0].data == {"price": 300}  # JSONB round-trips

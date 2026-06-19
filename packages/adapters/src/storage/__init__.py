@@ -1,9 +1,6 @@
-"""Storage/repository factory (mirrors ``get_flight_source``).
-
-Selecting/swapping a backend is config-only: ``config/storage.yaml`` + ``.env``
-(``DATABASE_URL`` for server engines). Adding a backend = one adapter file + one
-``storage.yaml`` entry + a branch here. Callers depend only on the ``Repository``
-contract.
+"""Storage factory (mirrors ``get_flight_source``). Backend selection is config-only
+(``config/storage.yaml`` + ``.env`` ``DATABASE_URL``); callers depend only on the
+``Storage`` bundle and the per-domain repository ports.
 """
 
 from __future__ import annotations
@@ -11,10 +8,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from packages.contracts.src.storage import Repository
 from packages.shared.src.config import resolve_storage_config
 
-from .sqlite_repository import BACKEND_NAME as SQLITE, SqliteRepository
+from .base import Storage
+from .sqlite import BACKEND_NAME as SQLITE, SqliteStorage
+
+POSTGRES = "postgres"
 
 
 def _repo_root() -> Path:
@@ -22,8 +21,8 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
 
-def get_repository(*, backend_override: Optional[str] = None) -> Repository:
-    """Build and initialize a Repository from resolved project config."""
+def get_storage(*, backend_override: Optional[str] = None) -> Storage:
+    """Build and initialize a Storage bundle from resolved project config."""
     resolved = resolve_storage_config(backend_override=backend_override)
 
     if resolved.backend == SQLITE:
@@ -31,14 +30,23 @@ def get_repository(*, backend_override: Optional[str] = None) -> Repository:
         path = Path(raw_path)
         if not path.is_absolute():
             path = _repo_root() / path
-        repo = SqliteRepository(path)
-        repo.initialize()
-        return repo
+        storage = SqliteStorage(path)
+        storage.initialize()
+        return storage
 
-    raise ValueError(
-        f"Unknown storage backend '{resolved.backend}'. Supported: {SQLITE}. "
-        "(Postgres adapter not yet implemented — config-swap target.)"
-    )
+    if resolved.backend == POSTGRES:
+        if not resolved.database_url:
+            raise ValueError("Postgres backend selected but DATABASE_URL is not set in .env.")
+        # Import here so SQLite-only runs don't require the psycopg dependency.
+        from .postgres import PostgresStorage
+
+        schema = resolved.options.get("schema", "public")
+        storage = PostgresStorage(resolved.database_url, schema=schema)
+        storage.initialize()
+        return storage
+
+    supported = ", ".join((SQLITE, POSTGRES))
+    raise ValueError(f"Unknown storage backend '{resolved.backend}'. Supported: {supported}.")
 
 
-__all__ = ["get_repository", "SqliteRepository"]
+__all__ = ["get_storage", "Storage", "SqliteStorage"]

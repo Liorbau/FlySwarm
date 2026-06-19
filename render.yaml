@@ -6,10 +6,12 @@
 #
 # Secrets (sync: false) must be set in the Render dashboard, NOT committed.
 #
-# NOTE on persistence: the free plan's disk is ephemeral, so monitored criteria
-# and waitlist emails reset on restart/redeploy. For durable storage, swap to
-# Postgres — set SWARM_STORAGE_BACKEND=postgres + DATABASE_URL (Supabase/Neon free
-# tier). The storage layer is config-swappable, so no code changes are needed.
+# PERSISTENCE: storage is set to Postgres (durable) below. DATABASE_URL is a
+# secret (sync: false) — you MUST set it in the Render dashboard (the Supabase
+# Session-pooler URI) before the first deploy, or boot fails fast with
+# "Postgres backend selected but DATABASE_URL is not set". To fall back to the
+# (ephemeral) free-disk SQLite, set SWARM_STORAGE_BACKEND=sqlite instead.
+# Note: waitlist emails (demo-landing) still use the ephemeral local file.
 
 services:
   - type: web
@@ -23,6 +25,10 @@ services:
         value: "."
       - key: SCAN_INTERVAL_SECONDS
         value: "21600"
+      - key: SWARM_STORAGE_BACKEND
+        value: "postgres"
+      - key: DATABASE_URL
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: TRAVELPAYOUTS_API_KEY
