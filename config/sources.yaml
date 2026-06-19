@@ -14,11 +14,11 @@ default_source: travelpayouts
 #   failover — try in order; use the first that returns offers.
 #   single   — ignore this block; use default_source / FLIGHT_SOURCE.
 # A listed source whose credentials are absent is skipped automatically, so this
-# is safe to ship before Amadeus creds exist (Travelpayouts-only until then).
+# is safe to ship before Duffel creds exist (Travelpayouts-only until then).
 # Setting the FLIGHT_SOURCE env var forces single-source mode (overrides this).
 composition:
   mode: merge
-  sources: [travelpayouts, amadeus]
+  sources: [travelpayouts, duffel]
 
 sources:
   travelpayouts:
@@ -28,13 +28,13 @@ sources:
       # "cheapest tickets" endpoint; cache-based, ~300 req/min (confirm in dashboard)
       endpoint: v1/prices/cheap
       timeout_seconds: 20
-  amadeus:
-    # Self-service TEST environment. Switch to https://api.amadeus.com for prod.
-    base_url: https://test.api.amadeus.com
+  duffel:
+    # Duffel Flights API (single bearer token, DUFFEL_API_TOKEN). Test tokens return
+    # test inventory; live data needs account activation. Same prod URL either way.
+    base_url: https://api.duffel.com
     currency: USD
     options:
-      timeout_seconds: 20
-      # Amadeus requires a departure date; synthesize this many days out when the
+      timeout_seconds: 30
+      # Duffel requires a departure date; synthesize this many days out when the
       # query has none (harvest/seed routes).
       days_ahead: 30
-      max_offers: 5

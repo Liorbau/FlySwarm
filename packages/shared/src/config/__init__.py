@@ -37,9 +37,8 @@ _SOURCE_ENV_KEYS: dict[str, dict[str, tuple[str, ...]]] = {
         "api_key": ("TRAVELPAYOUTS_API_KEY", "TRAVELPAYOUTS_TOKEN"),
         "marker": ("TRAVELPAYOUTS_MARKER",),
     },
-    "amadeus": {
-        "api_key": ("AMADEUS_API_KEY",),
-        "api_secret": ("AMADEUS_API_SECRET",),
+    "duffel": {
+        "api_key": ("DUFFEL_API_TOKEN",),
     },
 }
 
@@ -65,7 +64,6 @@ class ResolvedSourceConfig:
     options: dict[str, Any] = field(default_factory=dict)
     api_key: Optional[str] = None
     marker: Optional[str] = None
-    api_secret: Optional[str] = None  # e.g. Amadeus OAuth client secret
 
 
 @dataclass(frozen=True)
@@ -210,7 +208,6 @@ def resolve_source_config(
         options=options,
         api_key=_first_env(env_keys.get("api_key", ())),
         marker=_first_env(env_keys.get("marker", ())),
-        api_secret=_first_env(env_keys.get("api_secret", ())),
     )
 
 

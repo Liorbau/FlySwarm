@@ -16,8 +16,8 @@ from packages.shared.src.config import (
     resolve_source_config,
 )
 
-from .amadeus_source import SOURCE_NAME as AMADEUS, AmadeusFlightSource
 from .composite_source import CompositeFlightSource
+from .duffel_source import SOURCE_NAME as DUFFEL, DuffelFlightSource
 from .travelpayouts_source import SOURCE_NAME as TRAVELPAYOUTS, TravelpayoutsFlightSource
 
 
@@ -30,23 +30,19 @@ def _build_single(resolved: ResolvedSourceConfig) -> FlightSource:
             marker=resolved.marker,
             options=resolved.options,
         )
-    if resolved.source == AMADEUS:
-        return AmadeusFlightSource(
+    if resolved.source == DUFFEL:
+        return DuffelFlightSource(
             base_url=resolved.base_url,
             currency=resolved.currency,
             api_key=resolved.api_key,
-            api_secret=resolved.api_secret,
             options=resolved.options,
         )
-    raise ValueError(f"Unknown flight source '{resolved.source}'. Supported: {TRAVELPAYOUTS}, {AMADEUS}.")
+    raise ValueError(f"Unknown flight source '{resolved.source}'. Supported: {TRAVELPAYOUTS}, {DUFFEL}.")
 
 
 def _has_credentials(resolved: ResolvedSourceConfig) -> bool:
-    if resolved.source == AMADEUS:
-        return bool(resolved.api_key and resolved.api_secret)
-    if resolved.source == TRAVELPAYOUTS:
-        return bool(resolved.api_key)
-    return True
+    # Both current sources authenticate with a single token/key.
+    return bool(resolved.api_key)
 
 
 def get_flight_source(*, source_override: Optional[str] = None) -> FlightSource:
@@ -76,6 +72,6 @@ def get_flight_source(*, source_override: Optional[str] = None) -> FlightSource:
 __all__ = [
     "get_flight_source",
     "TravelpayoutsFlightSource",
-    "AmadeusFlightSource",
+    "DuffelFlightSource",
     "CompositeFlightSource",
 ]
