@@ -24,26 +24,10 @@ an orchestrator:
 
 ## 2. Project scope
 
-> **⚠️ LEGACY — no longer a limitation.** The "landing-page-only, do not build the
-> backend swarm" rule below was a *starting* constraint for the kickoff session. That
-> phase is **complete**. The project is now free to build swarm infrastructure
-> (orchestration, agents, storage, live API integrations). Treat the boxed text below
-> as historical context only.
-
-<details>
-<summary>Legacy kickoff constraint (no longer in force)</summary>
-
-> **CRITICAL (legacy):** Do **NOT** build the backend swarm or connect to any live
-> flight API in this session.
-
-The only deliverable for the kickoff session was a **Simple Landing Page** that
-introduced and validated the product idea, implementing **exactly three features**:
-
-1. **Features List** — explains how the Flight Monitoring Swarm works.
-2. **Interactive Button** — e.g. a "Try Demo" or other interactive UI component.
-3. **Waitlist / Signup Form** — captured user emails to a local `emails.json` file.
-
-</details>
+Building the full swarm is **in scope**: orchestration, agents, storage, live API
+integrations. (The kickoff session's landing-page-only constraint and the
+"build it three times, once per workflow layer" experiment are **done** — they no
+longer restrict new work. The legacy landing page still lives in `apps/demo-landing/`.)
 
 ### Standing constraints (still in force)
 - Artifacts must stay ready to commit to a **public Git repository**.
@@ -52,35 +36,7 @@ introduced and validated the product idea, implementing **exactly three features
 
 ---
 
-## 3. The Three-Layer Experiment (LEGACY — kickoff exercise)
-
-> **⚠️ LEGACY — no longer a limitation.** This three-layer exercise was part of the
-> kickoff session and is **done**. You are no longer restricted to one selected
-> "layer." Kept below for historical context.
-
-The landing page was built three separate times, once per workflow "layer", to compare
-the experience.
-
-### Layer 1 — Raw LLM (API, no tools) · ≤ 1 hr
-- Pretend you have **zero tools**: no filesystem, no terminal, no execution/verification.
-- Output **only clean, self-contained code blocks** (HTML/CSS/JS + a minimal Node.js or
-  Python backend that appends to `emails.json`).
-- The user manually copies, runs, and debugs everything.
-
-### Layer 2 — Harness (assisted) · ≤ 1 hr
-- You have local tools (file create/modify, terminal).
-- Create the files step-by-step (`index.html`, `server.js`, empty `emails.json`, etc.).
-- Run a quick syntax/unit check to verify the form writes test input to `emails.json`.
-
-### Layer 3 — Agent Harness (fully autonomous, Claude-Code style) · ≤ 1 hr
-- Take the single instruction, plan, execute, and auto-fix end-to-end.
-- Build a beautiful, modern, responsive UI; wire the live form to the backend;
-  create `emails.json`; launch the local server; run automated browser/API checks.
-- Deliver a fully tested, locally working app, 100% ready to commit.
-
----
-
-## 4. Model provider abstraction (architecture requirement)
+## 3. Model provider abstraction (architecture requirement)
 
 The system must be **model-agnostic and modular**: any agent must be able to run
 against either a **local model** (e.g. Ollama) or **any cloud model** (OpenAI,
@@ -107,19 +63,13 @@ vendor SDK directly.
 ### Configuration split (convention)
 - **Secrets → `.env`** (git-ignored): API keys and base URLs, e.g.
   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `OLLAMA_BASE_URL`.
-- **Provider/model selection & routing → dedicated config file** (committed, no secrets):
-  a `config/models.*` file (JSON/YAML) defining the active provider, model name per
-  role/agent, and tunables (temperature, max tokens). The active provider may also be
-  overridden via an env var such as `LLM_PROVIDER` for quick switching.
-
-> Note: this abstraction is **core infrastructure for the swarm** and is in active
-> use (see `harness/` and `orchestrator/`). Build against it freely; the earlier
-> "don't build the model layer during the landing-page session" restriction is legacy
-> and no longer applies.
+- **Provider/model selection & routing → `config/models.yaml`** (committed, no secrets):
+  active provider, model name per role/agent, and tunables (temperature, max tokens).
+  The active provider can also be overridden via `LLM_PROVIDER` for quick switching.
 
 ---
 
-## 5. Data storage / DB strategy (free-to-develop)
+## 4. Data storage / DB strategy (free-to-develop)
 
 No database engine is locked in. Everything must stay **free to develop** at this stage,
 so storage follows the same swappable-by-config principle as the model layer.
@@ -133,12 +83,12 @@ later **without touching agent/business logic**. Concretely:
 - No vendor-specific calls leak into the rest of the codebase.
 
 ### Phased plan
-- **Kickoff (landing page) — LEGACY:** emails went to a local **`emails.json`** flat
-  file. This was the kickoff-only choice; it no longer constrains new work.
 - **Local swarm dev (current):** **SQLite** — single local file, no server, no cost.
   Default for development.
 - **Hosted later (still free):** **Postgres** on a free tier (**Supabase** or **Neon**)
   when a real client/server DB is needed. SQLite → Postgres is the intended upgrade path.
+- (The legacy landing page stays on its `emails.json` flat file; new swarm work uses
+  the storage abstraction below.)
 
 ### Design rules
 - Access data through a **storage/repository abstraction** — agents never call a DB
@@ -148,13 +98,9 @@ later **without touching agent/business logic**. Concretely:
 - Prefer SQL-compatible tooling (e.g. Prisma/Drizzle for Node, SQLAlchemy for Python)
   so the same schema works across SQLite and Postgres.
 
-> Note: this is swarm infrastructure and is now fair game to build. The legacy landing
-> page stays on `emails.json`, but new swarm work should use the storage abstraction
-> (SQLite locally, Postgres later) — no need to ask first.
-
 ---
 
-## 6. Repository structure rule (current proposal)
+## 5. Repository structure rule (current proposal)
 
 This repository must keep a **hard separation** between demo artifacts and the real
 system, while allowing both to reuse shared contracts/domain logic.
@@ -164,16 +110,30 @@ system, while allowing both to reuse shared contracts/domain logic.
 
 ### Target layout
 - `apps/demo-landing/` — demo/experiment-only landing app and validation artifacts.
-- `apps/telegram-bot/` — real Telegram product surface (handlers, chat flows, delivery).
+- `apps/telegram-bot/` — real Telegram product surface (handlers = **controllers**, chat flows, delivery).
 - `apps/swarm-orchestrator/` — real orchestration runtime (scheduler, workers, coordination).
 - `harness/` — internal agent harness (loop, tool registry, local tests, validation scripts).
-- `packages/domain/` — pure business entities, value objects, and policies (no vendor SDKs).
-- `packages/contracts/` — shared interfaces for model, storage, flight, and notification providers.
-- `packages/adapters/` — swappable provider implementations (local/cloud LLMs, json/sqlite/postgres, mock/live flight APIs).
+- `packages/domain/` — **domain modules** + pure model. Each business domain is a
+  package with its own repository **port** and **service**:
+  `flights/` (criteria + price corpus), `alerts/`, `learnings/`, `conversations/`
+  (durable chat history). Shared pure model stays in `entities/`, `value_objects/`,
+  `policies/`. No vendor SDKs.
+- `packages/contracts/` — cross-cutting provider interfaces (model, flight, notification).
+  (Per-domain storage ports now live with their domain in `packages/domain/<domain>/repository.py`.)
+- `packages/adapters/` — swappable implementations. Storage is **per engine, per domain**:
+  `storage/sqlite/` and `storage/postgres/` each expose a `Storage` **bundle**
+  (`.criteria/.prices/.alerts/.learnings/.conversations`) over one shared connection;
+  `storage/base.py` is the bundle protocol; `storage/__init__.py` is the `get_storage()`
+  factory. Also LLM (`llm/`) and flight (`flights/`) adapters.
 - `packages/shared/` — cross-cutting utilities (config loading, logging, observability).
-- `config/` — committed, non-secret routing/config files (models/storage/agents).
+- `config/` — committed, non-secret routing/config files (models/storage/sources).
 - `data/` — local runtime data files in development.
 - `docs/` — architecture notes, decisions, and experiment outcomes.
+
+### Layered flow (the "controller → service → repository → adapter" rule)
+Controllers (Telegram handlers, orchestrator steps) call domain **services**, which
+call per-domain **repository ports**, which the per-engine **adapters** implement.
+Business logic lives in services, never in controllers or adapters.
 
 ### Boundary rules
 - Real apps (`apps/telegram-bot`, `apps/swarm-orchestrator`) must not depend on demo code from `apps/demo-landing`.
@@ -183,7 +143,7 @@ system, while allowing both to reuse shared contracts/domain logic.
 
 ---
 
-## 7. "The harness" — what the user means
+## 6. "The harness" — what the user means
 
 The user built a **harness** during class. Whenever they reference "the harness" or
 "my harness", they mean that custom agent environment/tooling (now in `harness/`, with
@@ -193,11 +153,66 @@ behavior is genuinely unclear, **flag it to the user** rather than inventing it.
 
 ---
 
-## 8. Working agreement
+## 7. Working agreement
 
-- The landing-page-only scope and per-layer restriction are **legacy**; building swarm
-  agents, storage, orchestration, and live API integrations is now in scope.
 - Keep new work behind the established abstractions (contracts → adapters, config-driven
-  provider/DB swaps); respect the §6 boundary rules.
+  provider/DB swaps); respect the §5 boundary rules.
 - Keep the project public-repo-safe: no secrets, no real user data committed.
 - Ask before destructive actions; otherwise proceed and note your decisions.
+
+<!-- captain:begin AI engineering policy (managed - do not edit inside) -->
+# Engineering Ownership Protocol
+
+This repository uses AI coding agents, but the human engineer owns the system design, tradeoffs, and final decisions.
+
+## Before implementation
+
+Before writing code:
+- Restate the task in your own words.
+- Identify affected files, modules, APIs, data models, or workflows.
+- Identify meaningful design decisions.
+- Present 2-4 options for important architecture or product decisions. (use the multiple-choice question tool, e.g. AskUserQuestion in Claude Code)
+- Recommend one option, but wait for human approval before implementing high-impact decisions.
+- Do not begin large implementation without an approved plan.
+
+## During implementation
+
+When writing code:
+- Prefer small, reviewable diffs.
+- Change at most 3 files or around 150 lines before pausing, unless explicitly approved.
+- Implement step by step.
+- Explain why each changed file is needed.
+- Avoid unnecessary abstractions.
+
+## Quality gates
+
+For behavior changes:
+- Add or update tests.
+- Run relevant lint, typecheck, and tests when possible.
+- If commands cannot be run, explain why.
+- Call out hidden assumptions.
+- Call out edge cases and failure modes.
+- Call out security, privacy, performance, or migration risks when relevant.
+
+## Human decision points
+
+Pause and ask for human input before deciding:
+- system architecture
+- data model changes
+- API contracts
+- database migrations
+- authentication or authorization behavior
+- error-handling strategy
+- major dependency additions
+- irreversible or hard-to-migrate choices
+
+## After implementation
+
+After coding:
+- Summarize changed files.
+- Explain the final design.
+- Explain how to verify behavior.
+- List tests run.
+- List remaining risks or TODOs.
+- For non-trivial tasks, ask 1-3 questions to check that the human understands the implementation.
+<!-- captain:end -->
