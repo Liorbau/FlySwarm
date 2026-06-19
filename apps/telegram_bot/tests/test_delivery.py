@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from apps.telegram_bot.delivery.bot import (
-    ConversationStore,
     RateLimiter,
     handle_update,
     parse_allowlist,
 )
 from apps.telegram_bot.delivery.telegram_client import parse_updates
+from packages.adapters.src.storage.sqlite import SqliteStorage
+from packages.domain.src.conversations import ConversationsService
 
 
 class FakeClient:
@@ -18,6 +19,13 @@ class FakeClient:
     def send_message(self, chat_id, text):
         self.sent.append((chat_id, text))
         return {"ok": True}
+
+
+def _conversations(window: int = 8) -> ConversationsService:
+    """A durable conversations service over an in-memory SQLite (no shared state)."""
+    storage = SqliteStorage(":memory:")
+    storage.initialize()
+    return ConversationsService(storage.conversations, window=window)
 
 
 def test_parse_updates_extracts_text_messages():
@@ -39,35 +47,35 @@ def test_parse_updates_empty():
     assert parse_updates({}) == []
 
 
-def test_conversation_store_keeps_rolling_window():
-    store = ConversationStore(max_turns=4)
+def test_conversation_service_keeps_rolling_window():
+    convo = _conversations(window=4)
     for i in range(6):
-        store.append(7, "user", f"m{i}")
-    history = store.history(7)
+        convo.record_user("7", f"m{i}")
+    history = convo.recent("7")
     assert len(history) == 4
-    assert history[0]["content"] == "m2"  # oldest two dropped
-    assert history[-1]["content"] == "m5"
-    assert store.history(999) == []  # unknown chat
+    assert history[0].content == "m2"  # oldest two fall outside the window
+    assert history[-1].content == "m5"
+    assert convo.recent("999") == []  # unknown chat
 
 
 def test_start_command_sends_welcome_without_llm():
     client = FakeClient()
-    store = ConversationStore()
-    reply = handle_update(client, repo=None, store=store, chat_id=42, text="/start")
+    convo = _conversations()
+    reply = handle_update(client, None, convo, chat_id=42, text="/start")
     assert len(client.sent) == 1
     assert "FlySwarm" in client.sent[0][1]
     assert reply.startswith("✈️")
-    assert store.history(42) == []  # commands aren't added to conversation history
+    assert convo.recent("42") == []  # commands aren't added to conversation history
 
 
-# ── abuse protection (blocked paths must NOT reach the LLM) ──────────────────
+# ── abuse protection (blocked paths must NOT reach the LLM or DB) ─────────────
 
 
 def test_allowlist_blocks_stranger_without_calling_llm():
     client = FakeClient()
-    # repo=None would crash handle_message; reaching it = test failure by exception.
+    # storage/conversations=None would crash if reached; reaching them = test failure.
     reply = handle_update(
-        client, repo=None, store=ConversationStore(), chat_id=999, text="watch TLV to LON",
+        client, None, None, chat_id=999, text="watch TLV to LON",
         allowlist={5632276491},
     )
     assert "private" in reply.lower()
@@ -79,7 +87,7 @@ def test_allowlisted_user_passes_allowlist_gate():
     limiter = RateLimiter(max_events=1, window_seconds=60)
     limiter.allow(7, now=0.0)  # consume the only slot
     reply = handle_update(
-        FakeClient(), repo=None, store=ConversationStore(), chat_id=7, text="hi",
+        FakeClient(), None, None, chat_id=7, text="hi",
         allowlist={7}, limiter=limiter, now=0.0,
     )
     assert "fast" in reply.lower()  # passed allowlist, then hit the rate limit
@@ -99,7 +107,7 @@ def test_rate_limited_message_does_not_reach_llm():
     limiter = RateLimiter(max_events=1, window_seconds=60)
     limiter.allow(42, now=0.0)  # exhaust
     reply = handle_update(
-        client, repo=None, store=ConversationStore(), chat_id=42, text="watch TLV to LON",
+        client, None, None, chat_id=42, text="watch TLV to LON",
         limiter=limiter, now=0.0,
     )
     assert "fast" in reply.lower()

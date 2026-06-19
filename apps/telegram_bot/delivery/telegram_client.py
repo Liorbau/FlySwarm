@@ -1,6 +1,5 @@
 """Minimal Telegram Bot API client (dependency-free, urllib).
 
-Mirrors the project's lean style (the Travelpayouts adapter also uses urllib).
 Supports long-poll ``getUpdates`` (inbound) and ``sendMessage`` (outbound). The
 bot token is read by the caller from ``TELEGRAM_BOT_TOKEN`` and passed in.
 """
@@ -28,9 +27,7 @@ class TelegramClient:
     def _post(self, method: str, payload: dict[str, Any]) -> dict[str, Any]:
         data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
-            f"{self._base}/{method}",
-            data=data,
-            headers={"Content-Type": "application/json"},
+            f"{self._base}/{method}", data=data, headers={"Content-Type": "application/json"}
         )
         with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -48,7 +45,7 @@ class TelegramClient:
 def parse_updates(response: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract ``{update_id, chat_id, text}`` from a getUpdates response.
 
-    Pure (no network) so it is unit-testable. Skips non-text and serviceupdates.
+    Pure (no network) so it is unit-testable. Skips non-text and service updates.
     """
     parsed: list[dict[str, Any]] = []
     for update in response.get("result", []):

@@ -1,12 +1,9 @@
 """Interface agent — turns natural-language travel requests into saved criteria.
 
-This is the harness loop (``AgentHarness``) wearing a *product* tool pack instead
-of the coding tools: same multi-turn reasoning / token budgeting, different
-capabilities. It parses fuzzy requests ("cheap beach trip from Tel Aviv in
-August under $300"), resolves cities to IATA codes and relative dates to real
-ones, then persists a ``MonitoringCriterion`` via the storage layer.
-
-The agent is built per user so its tools are bound to that user's id.
+The harness loop (``AgentHarness``) wearing a *product* tool pack: same reasoning
+/ token budgeting, different capabilities. Parses fuzzy requests, resolves cities
+to IATA codes and relative dates, then persists a ``MonitoringCriterion``. Built
+per user so its tools are bound to that user's id.
 """
 
 from __future__ import annotations
@@ -16,8 +13,7 @@ from typing import Any, Optional
 
 from apps.telegram_bot.tools.criteria_tools import build_criteria_toolset
 from harness.loop import AgentHarness
-from packages.adapters.src.storage import get_repository
-from packages.contracts.src.storage import Repository
+from packages.adapters.src.storage import Storage, get_storage
 
 INTERFACE_SYSTEM_PROMPT = """You are FlySwarm's flight-monitoring assistant. Users \
 send natural-language travel requests; your job is to turn each into a saved \
@@ -65,13 +61,13 @@ def _today_iso() -> str:
 def build_interface_agent(
     user_id: str,
     *,
-    repo: Optional[Repository] = None,
+    storage: Optional[Storage] = None,
     today: Optional[str] = None,
     **harness_kwargs: Any,
 ) -> AgentHarness:
     """Build a per-user interface agent (harness loop + product tools)."""
-    repo = repo or get_repository()
-    toolset = build_criteria_toolset(repo, user_id)
+    storage = storage or get_storage()
+    toolset = build_criteria_toolset(storage, user_id)
     system_prompt = INTERFACE_SYSTEM_PROMPT.format(today=today or _today_iso())
     return AgentHarness(tools=toolset, system_prompt=system_prompt, **harness_kwargs)
 
@@ -80,7 +76,7 @@ def handle_message(
     user_id: str,
     text: str,
     *,
-    repo: Optional[Repository] = None,
+    storage: Optional[Storage] = None,
     today: Optional[str] = None,
     history: Optional[list[dict]] = None,
     max_steps: int = 6,
@@ -88,18 +84,15 @@ def handle_message(
     """Run one user message through the interface agent and return the result.
 
     Pass ``history`` (a list of ``{"role", "content"}`` turns) to carry prior
-    conversation context across messages — the Telegram layer supplies this so
-    clarifying questions work. Returns the user-facing response, whether the agent
-    considered itself done, the run status, and the tool-call breakdown.
+    conversation context across messages so clarifying questions work. Returns the
+    response, whether the agent considered itself done, status, and tool breakdown.
     """
-    agent = build_interface_agent(user_id, repo=repo, today=today)
+    agent = build_interface_agent(user_id, storage=storage, today=today)
     if history:
         agent.messages = list(history)
     agent.run(text, max_steps=max_steps, interactive=False)
 
-    last = next(
-        (e for e in reversed(agent.trajectory) if e["type"] == "response"), None
-    )
+    last = next((e for e in reversed(agent.trajectory) if e["type"] == "response"), None)
     return {
         "response": last["response"] if last else "",
         "satisfied": bool(last["satisfied"]) if last else False,

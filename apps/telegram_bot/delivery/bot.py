@@ -19,10 +19,10 @@ from typing import Optional
 
 from apps.telegram_bot.agent.interface_agent import handle_message
 from apps.telegram_bot.delivery.telegram_client import TelegramClient, parse_updates
-from packages.adapters.src.storage import get_repository
-from packages.contracts.src.storage import Repository
+from packages.adapters.src.storage import Storage, get_storage
+from packages.domain.src.conversations import ConversationsService
 
-_MAX_TURNS = 8  # rolling window of messages kept per chat
+_MAX_TURNS = 8  # rolling window of messages replayed to the LLM per chat
 _WELCOME = (
     "✈️ Hi! I'm FlySwarm. Tell me a trip to watch in plain language — e.g. "
     "\"cheap flight from Tel Aviv to London in August under $300\". "
@@ -30,23 +30,6 @@ _WELCOME = (
 )
 _PRIVATE_MSG = "Sorry — this bot is private and not open to new users right now."
 _RATELIMIT_MSG = "You're sending messages a bit fast — please wait a moment and try again."
-
-
-class ConversationStore:
-    """In-memory rolling conversation history per chat (resets on restart)."""
-
-    def __init__(self, max_turns: int = _MAX_TURNS) -> None:
-        self._by_chat: dict[int, list[dict]] = {}
-        self._max = max_turns
-
-    def history(self, chat_id: int) -> list[dict]:
-        return list(self._by_chat.get(chat_id, []))
-
-    def append(self, chat_id: int, role: str, content: str) -> None:
-        msgs = self._by_chat.setdefault(chat_id, [])
-        msgs.append({"role": role, "content": content})
-        if len(msgs) > self._max:
-            del msgs[: len(msgs) - self._max]
 
 
 class RateLimiter:
@@ -85,8 +68,8 @@ def parse_allowlist(raw: Optional[str]) -> Optional[set[int]]:
 
 def handle_update(
     client: TelegramClient,
-    repo: Repository,
-    store: ConversationStore,
+    storage: Optional[Storage],
+    conversations: Optional[ConversationsService],
     chat_id: int,
     text: str,
     *,
@@ -96,8 +79,8 @@ def handle_update(
 ) -> str:
     """Process one inbound message and send a reply. Returns the reply text.
 
-    Gating (allowlist, then rate limit) happens before any LLM/flight-API call,
-    so declined messages cost nothing beyond a free Telegram reply.
+    Gating (allowlist, then rate limit) happens before any LLM/flight-API or DB
+    call, so declined messages cost nothing beyond a free Telegram reply.
     """
     if text.strip().lower() in ("/start", "/help"):
         client.send_message(chat_id, _WELCOME)
@@ -111,26 +94,27 @@ def handle_update(
         client.send_message(chat_id, _RATELIMIT_MSG)
         return _RATELIMIT_MSG
 
-    result = handle_message(
-        str(chat_id), text, repo=repo, history=store.history(chat_id)
-    )
+    history = [
+        {"role": m.role, "content": m.content} for m in conversations.recent(str(chat_id))
+    ]
+    result = handle_message(str(chat_id), text, storage=storage, history=history)
     reply = result["response"] or "Sorry, I didn't catch that — try rephrasing."
     client.send_message(chat_id, reply)
-    store.append(chat_id, "user", text)
-    store.append(chat_id, "assistant", reply)
+    conversations.record_user(str(chat_id), text)
+    conversations.record_assistant(str(chat_id), reply)
     return reply
 
 
 def run_polling(
     client: TelegramClient,
     *,
-    repo: Optional[Repository] = None,
-    store: Optional[ConversationStore] = None,
+    storage: Optional[Storage] = None,
+    conversations: Optional[ConversationsService] = None,
     poll_timeout: int = 30,
 ) -> None:
     """Long-poll for updates and handle them until interrupted."""
-    repo = repo or get_repository()
-    store = store or ConversationStore()
+    storage = storage or get_storage()
+    conversations = conversations or ConversationsService(storage.conversations, window=_MAX_TURNS)
 
     allowlist = parse_allowlist(os.getenv("TELEGRAM_ALLOWED_CHAT_IDS"))
     limiter = RateLimiter(
@@ -152,11 +136,11 @@ def run_polling(
             offset = update["update_id"] + 1
             try:
                 handle_update(
-                    client, repo, store, update["chat_id"], update["text"],
+                    client, storage, conversations, update["chat_id"], update["text"],
                     allowlist=allowlist, limiter=limiter,
                 )
             except Exception as exc:  # never let one bad message kill the loop
                 print(f"[bot] handler error for chat {update['chat_id']}: {exc}")
 
 
-__all__ = ["run_polling", "handle_update", "ConversationStore", "RateLimiter", "parse_allowlist"]
+__all__ = ["run_polling", "handle_update", "RateLimiter", "parse_allowlist"]

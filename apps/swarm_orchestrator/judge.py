@@ -1,8 +1,7 @@
 """Deal judgment — the runtime implementation of the judge-deal skill.
 
-A cheap deterministic gate decides whether an offer is even a candidate (target
-met, or a new low vs prior history); only candidates go to the LLM for a nuanced
-score and a one-line, user-facing reason. See
+A cheap deterministic gate decides candidacy (target met, or a new low vs history);
+only candidates go to the LLM for a nuanced score + user-facing reason. See
 ``.claude/skills/judge-deal/SKILL.md`` for the contract this implements.
 """
 
@@ -56,21 +55,16 @@ def _llm_judge(
     client,
 ) -> tuple[bool, float, str]:
     facts = {
-        "price": offer.price.amount,
-        "currency": offer.price.currency,
-        "route": f"{offer.origin}->{offer.destination}",
-        "airline": offer.airline,
+        "price": offer.price.amount, "currency": offer.price.currency,
+        "route": f"{offer.origin}->{offer.destination}", "airline": offer.airline,
         "prior_min": prior_min,
         "prior_avg": round(prior_avg, 2) if prior_avg is not None else None,
-        "history_points": count,
-        "target_price": target_price,
+        "history_points": count, "target_price": target_price,
     }
-    result = client.complete(
-        messages=[
-            {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-            {"role": "user", "content": json.dumps(facts)},
-        ]
-    )
+    result = client.complete(messages=[
+        {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
+        {"role": "user", "content": json.dumps(facts)},
+    ])
     raw = (result.message.content or "").strip()
     try:
         data = json.loads(raw)
@@ -99,11 +93,9 @@ def judge_deal(
 
     if not candidate:
         return DealVerdict(
-            is_deal=False,
-            score=0.0,
+            is_deal=False, score=0.0,
             reason="Not below the user's target and not a new low.",
-            target_met=target_met,
-            is_new_best=is_new_best,
+            target_met=target_met, is_new_best=is_new_best,
         )
 
     if not use_llm:
@@ -112,11 +104,8 @@ def judge_deal(
         else:
             reason = f"New low for this route at {price:.0f} {offer.price.currency} (was {prior_min:.0f})."
         return DealVerdict(
-            is_deal=True,
-            score=0.9 if target_met else 0.7,
-            reason=reason,
-            target_met=target_met,
-            is_new_best=is_new_best,
+            is_deal=True, score=0.9 if target_met else 0.7, reason=reason,
+            target_met=target_met, is_new_best=is_new_best,
         )
 
     is_deal, score, reason = _llm_judge(
@@ -127,11 +116,8 @@ def judge_deal(
         is_deal = True
         score = max(score, 0.85)
     return DealVerdict(
-        is_deal=is_deal,
-        score=score,
-        reason=reason,
-        target_met=target_met,
-        is_new_best=is_new_best,
+        is_deal=is_deal, score=score, reason=reason,
+        target_met=target_met, is_new_best=is_new_best,
     )
 
 

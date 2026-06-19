@@ -8,21 +8,21 @@ import pytest
 
 from apps.swarm_orchestrator.judge import DealVerdict
 from apps.swarm_orchestrator.notify import build_notifications, format_message, offer_key
-from apps.swarm_orchestrator.scan import DealResult
-from packages.adapters.src.storage.sqlite_repository import SqliteRepository
+from apps.swarm_orchestrator.evaluate import DealResult
+from packages.adapters.src.storage.sqlite import SqliteStorage
 from packages.domain.src import FlightOffer, Money, MonitoringCriterion, SearchQuery
 
 
 @pytest.fixture()
-def repo(tmp_path):
-    r = SqliteRepository(tmp_path / "notify.sqlite3")
-    r.initialize()
-    yield r
-    r.close()
+def storage(tmp_path):
+    s = SqliteStorage(tmp_path / "notify.sqlite3")
+    s.initialize()
+    yield s
+    s.close()
 
 
-def _deal(repo) -> DealResult:
-    crit = repo.save_criterion(
+def _deal(storage) -> DealResult:
+    crit = storage.criteria.save(
         MonitoringCriterion(user_id="u1", query=SearchQuery("TLV", "LON"), target_price=400)
     )
     offer = FlightOffer(
@@ -38,9 +38,9 @@ def _deal(repo) -> DealResult:
     return DealResult(criterion=crit, offer=offer, verdict=verdict)
 
 
-def test_build_notifications_records_alert_and_composes(repo):
-    deal = _deal(repo)
-    notes = build_notifications([deal], repo)
+def test_build_notifications_records_alert_and_composes(storage):
+    deal = _deal(storage)
+    notes = build_notifications([deal], storage)
 
     assert len(notes) == 1
     n = notes[0]
@@ -50,13 +50,13 @@ def test_build_notifications_records_alert_and_composes(repo):
     assert "marker=738534" in n.booking_link
     assert "Well below your target." in n.text
     # the alert was recorded (so it won't repeat)
-    assert repo.was_alerted(deal.criterion.id, n.offer_key) is True
+    assert storage.alerts.was_alerted(deal.criterion.id, n.offer_key) is True
 
 
-def test_notifications_are_deduped_across_passes(repo):
-    deal = _deal(repo)
-    first = build_notifications([deal], repo)
-    second = build_notifications([deal], repo)  # same offer again
+def test_notifications_are_deduped_across_passes(storage):
+    deal = _deal(storage)
+    first = build_notifications([deal], storage)
+    second = build_notifications([deal], storage)  # same offer again
 
     assert len(first) == 1
     assert second == []  # already alerted -> no repeat

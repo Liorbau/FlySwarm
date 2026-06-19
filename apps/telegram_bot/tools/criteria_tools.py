@@ -1,10 +1,9 @@
 """Product tools for the interface agent — saving/listing monitoring criteria.
 
-These are the user-facing counterpart to the harness's coding tools. Each tool
-follows the same contract (``execute(args: dict) -> str`` returning a JSON
-string), but is *bound* to a specific ``user_id`` and ``Repository`` at build
-time so the LLM can never set the user id itself (it only supplies flight
-fields). ``build_criteria_toolset`` assembles them into a harness ``ToolSet``.
+The user-facing counterpart to the harness's coding tools. Each tool follows the
+same contract (``execute(args: dict) -> str`` returning a JSON string), but is
+*bound* to a specific ``user_id`` and ``Repository`` at build time so the LLM can
+never set the user id itself. ``build_criteria_toolset`` assembles a ``ToolSet``.
 """
 
 from __future__ import annotations
@@ -14,9 +13,12 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from harness.tools import ToolSet
-from packages.contracts.src.storage import Repository
+from packages.adapters.src.storage import Storage
 from packages.domain.src import LESSON, MonitoringCriterion, SearchQuery
+from packages.domain.src.learnings import LearningsService
 from packages.domain.src.policies import compute_expiry, route_insight_text
+from packages.domain.src.prices import PricesService
+from packages.domain.src.watches import WatchesService
 
 # ── tool schemas (static; bound to a user at build time) ─────────────────────
 
@@ -110,7 +112,7 @@ def _err(message: str) -> str:
     return json.dumps({"error": message})
 
 
-def make_save_criterion(repo: Repository, user_id: str) -> Callable[[dict], str]:
+def make_save_criterion(watches: WatchesService, user_id: str) -> Callable[[dict], str]:
     def execute(args: dict) -> str:
         origin = (args.get("origin") or "").strip()
         destination = (args.get("destination") or "").strip()
@@ -133,7 +135,7 @@ def make_save_criterion(repo: Repository, user_id: str) -> Callable[[dict], str]
             one_way=return_date is None,
         )
         created_at = datetime.now(timezone.utc)
-        saved = repo.save_criterion(
+        saved = watches.add(
             MonitoringCriterion(
                 user_id=user_id,
                 query=query,
@@ -160,9 +162,9 @@ def make_save_criterion(repo: Repository, user_id: str) -> Callable[[dict], str]
     return execute
 
 
-def make_list_criteria(repo: Repository, user_id: str) -> Callable[[dict], str]:
+def make_list_criteria(watches: WatchesService, user_id: str) -> Callable[[dict], str]:
     def execute(args: dict) -> str:
-        items = repo.list_active_criteria(user_id=user_id)
+        items = watches.list_for_user(user_id)
         return json.dumps(
             {
                 "count": len(items),
@@ -185,21 +187,21 @@ def make_list_criteria(repo: Repository, user_id: str) -> Callable[[dict], str]:
     return execute
 
 
-def make_deactivate_criterion(repo: Repository, user_id: str) -> Callable[[dict], str]:
+def make_deactivate_criterion(watches: WatchesService, user_id: str) -> Callable[[dict], str]:
     def execute(args: dict) -> str:
         criterion_id = args.get("criterion_id")
         if criterion_id is None:
             return _err("criterion_id is required")
-        existing = repo.get_criterion(int(criterion_id))
+        existing = watches.get(int(criterion_id))
         if existing is None or existing.user_id != user_id:
             return _err(f"no criterion {criterion_id} for this user")
-        repo.deactivate_criterion(int(criterion_id))
+        watches.stop(int(criterion_id))
         return json.dumps({"deactivated": True, "id": int(criterion_id)})
 
     return execute
 
 
-def make_route_insight(repo: Repository) -> Callable[[dict], str]:
+def make_route_insight(prices: PricesService, learnings: LearningsService) -> Callable[[dict], str]:
     def execute(args: dict) -> str:
         origin = (args.get("origin") or "").strip()
         destination = (args.get("destination") or "").strip()
@@ -210,23 +212,26 @@ def make_route_insight(repo: Repository) -> Callable[[dict], str]:
             target_price = float(target_price) if target_price is not None else None
         except (TypeError, ValueError):
             target_price = None
-        history = repo.price_history(origin, destination, limit=500)
-        lessons = repo.learnings_for_route(origin, destination, kind=LESSON, limit=3)
+        history = prices.history(origin, destination, limit=500)
+        lessons = learnings.for_route(origin, destination, kind=LESSON, limit=3)
         insight = route_insight_text(history, lessons, target_price=target_price)
         return json.dumps({"insight": insight})
 
     return execute
 
 
-def build_criteria_toolset(repo: Repository, user_id: str) -> ToolSet:
+def build_criteria_toolset(storage: Storage, user_id: str) -> ToolSet:
     """Assemble the criteria tools, bound to one user, into a harness ToolSet."""
+    watches = WatchesService(storage.criteria)
+    prices = PricesService(storage.prices)
+    learnings = LearningsService(storage.learnings)
     return ToolSet(
         schemas=[_SAVE_SCHEMA, _LIST_SCHEMA, _DEACTIVATE_SCHEMA, _INSIGHT_SCHEMA],
         registry={
-            "save_criterion": make_save_criterion(repo, user_id),
-            "list_criteria": make_list_criteria(repo, user_id),
-            "deactivate_criterion": make_deactivate_criterion(repo, user_id),
-            "route_insight": make_route_insight(repo),
+            "save_criterion": make_save_criterion(watches, user_id),
+            "list_criteria": make_list_criteria(watches, user_id),
+            "deactivate_criterion": make_deactivate_criterion(watches, user_id),
+            "route_insight": make_route_insight(prices, learnings),
         },
     )
 

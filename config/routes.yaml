@@ -1,0 +1,39 @@
+# ─── FlySwarm harvesting routes (committed, NON-SECRET) ───────────────────────
+# The orchestrator proactively fetches prices for these "seed" routes on a
+# schedule — independent of any user request — to grow the price corpus for
+# better analytics and faster, smarter responses over time. Routes that users
+# are actively watching are ALWAYS fetched too (and judged for deals); seed
+# routes fill the remaining per-cycle API budget.
+#
+# Edit freely. Use IATA city/airport codes.
+
+seed_routes:
+  # Tel Aviv outbound (the operator's home base)
+  - { origin: TLV, destination: LON }   # London
+  - { origin: TLV, destination: NYC }   # New York
+  - { origin: TLV, destination: PAR }   # Paris
+  - { origin: TLV, destination: ROM }   # Rome
+  - { origin: TLV, destination: BCN }   # Barcelona
+  - { origin: TLV, destination: AMS }   # Amsterdam
+  - { origin: TLV, destination: BER }   # Berlin
+  - { origin: TLV, destination: ATH }   # Athens
+  - { origin: TLV, destination: IST }   # Istanbul
+  - { origin: TLV, destination: DXB }   # Dubai
+  # A few popular global pairs (corpus breadth beyond TLV)
+  - { origin: LON, destination: NYC }
+  - { origin: PAR, destination: NYC }
+  - { origin: LON, destination: BCN }
+
+harvest:
+  # Ceiling on API CALLS PER CYCLE — purely a provider rate-limit throttle, NOT a
+  # data cap. The corpus is append-only: routes not refreshed this cycle keep ALL
+  # their stored history and are simply refreshed on a later cycle. Actual calls ≈
+  # routes × active sources (merge mode = 2). Travelpayouts allows ~300/min and the
+  # cycle runs every few hours, so this can be large; raise it for more data.
+  max_routes_per_cycle: 100
+  # Skip a SEED route if it already has an observation within this many hours
+  # (watched routes bypass this — they're always refreshed so deals stay fresh).
+  freshness_hours: 6
+  # Within the budget, an LLM orchestrator ranks routes by demand (watchers) then
+  # staleness. Falls back to deterministic (demand-then-stalest) when false.
+  prioritize_with_llm: true
