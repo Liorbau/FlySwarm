@@ -1,14 +1,7 @@
 """Criterion expiry policy — when to stop monitoring a route.
 
-A monitoring criterion is watched until its travel deadline passes (or the user
-stops it manually). The deadline is derived from the search date:
-
-- full date ``YYYY-MM-DD`` -> end of that day (UTC),
-- month only ``YYYY-MM``   -> end of that month (UTC),
-- no date                  -> ``created_at`` + a default horizon (90 days).
-
-Pure and vendor-neutral: callers compute the expiry and persist it; the scan
-loop and scheduler use it to skip/auto-stop overdue criteria.
+Deadline derived from the search date: ``YYYY-MM-DD`` -> end of day (UTC);
+``YYYY-MM`` -> end of month (UTC); no date -> ``created_at`` + horizon (90d).
 """
 
 from __future__ import annotations
@@ -22,9 +15,7 @@ DEFAULT_HORIZON_DAYS = 90
 
 
 def _end_of_day(year: int, month: int, day: int) -> datetime:
-    return datetime.combine(
-        datetime(year, month, day).date(), time.max, tzinfo=timezone.utc
-    )
+    return datetime.combine(datetime(year, month, day).date(), time.max, tzinfo=timezone.utc)
 
 
 def compute_expiry(

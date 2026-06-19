@@ -1,8 +1,4 @@
-"""Alert entity — a record that we notified a user about a deal.
-
-Recording alerts lets the notification step de-duplicate (don't ping twice for
-the same offer) and gives the self-improving layer a log of "earned wins".
-"""
+"""Alert entity — a record that we notified a user about a deal (enables dedup)."""
 
 from __future__ import annotations
 
@@ -17,9 +13,8 @@ from packages.domain.src.value_objects.money import Money
 class Alert:
     """A sent (or about-to-be-sent) deal notification.
 
-    ``offer_key`` is a stable de-dup key for the underlying offer (e.g.
-    route+depart_date+price). ``deal_score`` is the judged quality (0..1 or a
-    project-defined scale). ``id`` and ``sent_at`` are assigned on save.
+    ``offer_key`` is a stable de-dup key; ``deal_score`` is the judged quality;
+    ``id``/``sent_at`` are assigned on save.
     """
 
     criterion_id: int

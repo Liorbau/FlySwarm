@@ -1,8 +1,6 @@
 """Route insight policy — summarize price history + lessons into one line.
 
-Pure and vendor-neutral: callers fetch the data (history, lessons) from the
-repository and pass it in. Used by the interface agent to give data-informed
-guidance when a user sets up monitoring (the read side of the self-improving loop).
+Callers pass in fetched data; used by the interface agent for monitoring guidance.
 """
 
 from __future__ import annotations

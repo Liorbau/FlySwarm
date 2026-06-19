@@ -1,9 +1,7 @@
 """Learning entity — a stored win or hard lesson the swarm accumulates.
 
-The reflection step writes Learnings after each scan (wins: good deals surfaced;
-lessons: e.g. a criterion that expired without ever hitting its target). The
-interface agent reads route learnings back to give data-informed guidance — the
-self-improving feedback loop.
+Reflection writes these after each scan; the interface agent reads them back —
+the self-improving feedback loop.
 """
 
 from __future__ import annotations
@@ -20,9 +18,8 @@ LESSON = "lesson"
 class Learning:
     """A vendor-neutral piece of accumulated knowledge.
 
-    ``kind`` is ``"win"`` or ``"lesson"``. ``text`` is a short human-readable
-    summary. ``data`` holds optional structured extras (e.g. lowest_seen, target).
-    ``id`` and ``created_at`` are assigned on save.
+    ``kind`` is ``"win"``/``"lesson"``; ``data`` holds optional structured extras;
+    ``id``/``created_at`` are assigned on save.
     """
 
     kind: str

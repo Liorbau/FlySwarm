@@ -1,8 +1,6 @@
 """FlightOffer entity — the canonical shape every flight source maps into.
 
-This is the only flight representation the rest of the swarm (price-drop
-analytics, notifications) is allowed to see. Raw vendor JSON and field names
-never leave the source adapter; they are mapped into this object.
+The only flight representation the rest of the swarm sees; vendor JSON never escapes.
 """
 
 from __future__ import annotations
@@ -18,9 +16,7 @@ from packages.domain.src.value_objects.money import Money
 class FlightOffer:
     """A single priced flight offer, normalized across providers.
 
-    Required facts are always present; optional facts are ``None`` when a source
-    cannot supply them (flagged per-source in the mapping table). All datetimes
-    are timezone-aware UTC.
+    Optional facts are ``None`` when a source can't supply them; datetimes are UTC.
     """
 
     origin: str

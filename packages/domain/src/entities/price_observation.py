@@ -1,7 +1,6 @@
 """PriceObservation entity — one historical price point for a route.
 
-The scan workflow records an observation each time it sees a price, building the
-history the deal-judgment step compares against ("is this actually cheap?").
+Recorded each scan to build the history deal-judgment compares against.
 """
 
 from __future__ import annotations

@@ -1,9 +1,4 @@
-"""Money value object — a price amount paired with an ISO 4217 currency.
-
-Vendor-neutral: every flight source maps its raw price into this shape so that
-downstream analytics/notification logic never deals with provider quirks (minor
-units, implied currencies, etc.).
-"""
+"""Money value object — a price amount paired with an ISO 4217 currency."""
 
 from __future__ import annotations
 
@@ -12,11 +7,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Money:
-    """A monetary amount in a specific currency.
-
-    ``amount`` is in major units (e.g. dollars, not cents). ``currency`` is an
-    ISO 4217 code, normalized to uppercase.
-    """
+    """A monetary amount (major units) in an ISO 4217 currency (upper-cased)."""
 
     amount: float
     currency: str

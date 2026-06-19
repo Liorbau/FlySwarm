@@ -14,10 +14,8 @@ from typing import Optional
 class SearchQuery:
     """Inputs for a flight search.
 
-    ``origin`` / ``destination`` are IATA city or airport codes. ``depart_date``
-    and ``return_date`` accept ``YYYY-MM-DD`` or ``YYYY-MM`` (some sources only
-    support month granularity). ``currency`` is the requested ISO 4217 currency;
-    the project default is ``USD``.
+    ``origin``/``destination`` are IATA codes; ``depart_date``/``return_date``
+    accept ``YYYY-MM-DD`` or ``YYYY-MM``; ``currency`` is ISO 4217 (default USD).
     """
 
     origin: str
