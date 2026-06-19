@@ -17,7 +17,6 @@ from packages.shared.src.config import (
 )
 
 from .composite_source import CompositeFlightSource
-from .duffel_source import SOURCE_NAME as DUFFEL, DuffelFlightSource
 from .travelpayouts_source import SOURCE_NAME as TRAVELPAYOUTS, TravelpayoutsFlightSource
 
 
@@ -30,14 +29,8 @@ def _build_single(resolved: ResolvedSourceConfig) -> FlightSource:
             marker=resolved.marker,
             options=resolved.options,
         )
-    if resolved.source == DUFFEL:
-        return DuffelFlightSource(
-            base_url=resolved.base_url,
-            currency=resolved.currency,
-            api_key=resolved.api_key,
-            options=resolved.options,
-        )
-    raise ValueError(f"Unknown flight source '{resolved.source}'. Supported: {TRAVELPAYOUTS}, {DUFFEL}.")
+    # Add the next provider here (one adapter file + a sources.yaml entry).
+    raise ValueError(f"Unknown flight source '{resolved.source}'. Supported: {TRAVELPAYOUTS}.")
 
 
 def _has_credentials(resolved: ResolvedSourceConfig) -> bool:
@@ -72,6 +65,5 @@ def get_flight_source(*, source_override: Optional[str] = None) -> FlightSource:
 __all__ = [
     "get_flight_source",
     "TravelpayoutsFlightSource",
-    "DuffelFlightSource",
     "CompositeFlightSource",
 ]

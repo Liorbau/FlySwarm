@@ -38,32 +38,32 @@ class Broken:
 
 def test_merge_concatenates_all_sources_tagged():
     comp = CompositeFlightSource(
-        [Fixed([_offer(300, "travelpayouts")]), Fixed([_offer(280, "duffel")])],
+        [Fixed([_offer(300, "travelpayouts")]), Fixed([_offer(280, "other")])],
         mode="merge",
     )
     offers = comp.search(QUERY)
-    assert {o.source for o in offers} == {"travelpayouts", "duffel"}
+    assert {o.source for o in offers} == {"travelpayouts", "other"}
     assert min(o.price.amount for o in offers) == 280
 
 
 def test_merge_isolates_a_failing_source():
-    comp = CompositeFlightSource([Broken(), Fixed([_offer(300, "duffel")])], mode="merge")
+    comp = CompositeFlightSource([Broken(), Fixed([_offer(300, "other")])], mode="merge")
     offers = comp.search(QUERY)
-    assert [o.source for o in offers] == ["duffel"]  # broken one skipped, rest kept
+    assert [o.source for o in offers] == ["other"]  # broken one skipped, rest kept
 
 
 def test_failover_returns_first_non_empty():
     comp = CompositeFlightSource(
-        [Fixed([]), Fixed([_offer(300, "duffel")]), Fixed([_offer(1, "never")])],
+        [Fixed([]), Fixed([_offer(300, "other")]), Fixed([_offer(1, "never")])],
         mode="failover",
     )
     offers = comp.search(QUERY)
-    assert [o.source for o in offers] == ["duffel"]  # stops at first non-empty
+    assert [o.source for o in offers] == ["other"]  # stops at first non-empty
 
 
 def test_failover_skips_a_failing_source():
-    comp = CompositeFlightSource([Broken(), Fixed([_offer(300, "duffel")])], mode="failover")
-    assert [o.source for o in comp.search(QUERY)] == ["duffel"]
+    comp = CompositeFlightSource([Broken(), Fixed([_offer(300, "other")])], mode="failover")
+    assert [o.source for o in comp.search(QUERY)] == ["other"]
 
 
 def test_empty_sources_rejected():

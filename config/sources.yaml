@@ -8,17 +8,14 @@
 
 default_source: travelpayouts
 
-# Multi-source composition. mode: merge | failover | single.
-#   merge    — query ALL listed sources per route, record both (source-tagged),
-#              judge the cheapest. ~1 API call PER source per route.
-#   failover — try in order; use the first that returns offers.
-#   single   — ignore this block; use default_source / FLIGHT_SOURCE.
-# A listed source whose credentials are absent is skipped automatically, so this
-# is safe to ship before Duffel creds exist (Travelpayouts-only until then).
-# Setting the FLIGHT_SOURCE env var forces single-source mode (overrides this).
-composition:
-  mode: merge
-  sources: [travelpayouts, duffel]
+# Single source for now (Travelpayouts). The swarm supports MULTI-source merge/
+# failover generically: add a second source under `sources:` and a `composition:`
+# block, e.g.
+#   composition:
+#     mode: merge          # merge | failover | single
+#     sources: [travelpayouts, <other>]
+# Sources whose credentials are absent are skipped automatically; `FLIGHT_SOURCE`
+# forces single-source mode. (No second flight source is wired today.)
 
 sources:
   travelpayouts:
@@ -28,13 +25,3 @@ sources:
       # "cheapest tickets" endpoint; cache-based, ~300 req/min (confirm in dashboard)
       endpoint: v1/prices/cheap
       timeout_seconds: 20
-  duffel:
-    # Duffel Flights API (single bearer token, DUFFEL_API_TOKEN). Test tokens return
-    # test inventory; live data needs account activation. Same prod URL either way.
-    base_url: https://api.duffel.com
-    currency: USD
-    options:
-      timeout_seconds: 30
-      # Duffel requires a departure date; synthesize this many days out when the
-      # query has none (harvest/seed routes).
-      days_ahead: 30

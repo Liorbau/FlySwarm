@@ -37,9 +37,6 @@ _SOURCE_ENV_KEYS: dict[str, dict[str, tuple[str, ...]]] = {
         "api_key": ("TRAVELPAYOUTS_API_KEY", "TRAVELPAYOUTS_TOKEN"),
         "marker": ("TRAVELPAYOUTS_MARKER",),
     },
-    "duffel": {
-        "api_key": ("DUFFEL_API_TOKEN",),
-    },
 }
 
 
