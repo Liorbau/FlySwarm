@@ -8,8 +8,8 @@
 # ─── Captured User Data (PII — never commit real signups) ─
 emails.json
 
-# ─── Homework-local notes (not part of the public product) ─
-docs/agent-journal.md
+# ─── Homework-local notes/experiments (kept local, off the public repo) ─
+docs/
 
 # ─── Local runtime data (keep the dir, ignore its contents) ─
 data/*
