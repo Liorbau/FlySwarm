@@ -12,10 +12,9 @@ from .write_file import SCHEMA as _write_file_schema, execute as _write_file_exe
 class ToolSet:
     """A pluggable bundle of tools for the harness loop.
 
-    ``schemas`` are OpenAI-style tool schemas passed to the LLM; ``registry``
-    maps each tool ``name`` to its ``execute(args: dict) -> str`` callable. The
-    same loop runs different tool packs (coding-tools for dev, product-tools for
-    the user-facing agent) by swapping the ToolSet.
+    ``schemas`` are OpenAI-style tool schemas passed to the LLM; ``registry`` maps
+    each tool ``name`` to its ``execute(args: dict) -> str`` callable. The same loop
+    runs different tool packs by swapping the ToolSet.
     """
 
     schemas: list[dict] = field(default_factory=list)

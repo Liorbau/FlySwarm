@@ -1,11 +1,7 @@
-"""LLM provider contract for FlySwarm (CLAUDE.md section 4).
-
-A single, vendor-neutral interface every agent calls instead of a provider SDK.
-The shape is intentionally OpenAI-style so it maps 1:1 onto LiteLLM, which
-normalizes OpenAI / Anthropic / Google / Ollama behind one API.
-
-Concrete implementations live in ``packages/adapters`` (e.g. a LiteLLM client);
-agents and the harness depend only on the ``LLMClient`` protocol below.
+"""LLM provider contract for FlySwarm (CLAUDE.md section 4): a vendor-neutral interface
+every agent calls instead of a provider SDK. The shape is OpenAI-style so it maps 1:1
+onto LiteLLM (which normalizes OpenAI / Anthropic / Google / Ollama). Implementations
+live in ``packages/adapters``; agents and the harness depend only on ``LLMClient``.
 """
 
 from __future__ import annotations

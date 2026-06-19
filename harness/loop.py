@@ -49,8 +49,7 @@ class AgentHarness:
         )
         self.model = getattr(self.client, "model", model or "unknown")
 
-        # Pluggable tool pack + system prompt. Defaults preserve the original
-        # coding-agent behavior; the product agent injects its own ToolSet.
+        # Pluggable tool pack + system prompt; defaults preserve coding-agent behavior.
         self.tools = tools or CODING_TOOLS
         self.system_prompt = system_prompt or SYSTEM_PROMPT
         self.token_limit = token_limit or DEFAULT_TOKEN_LIMIT

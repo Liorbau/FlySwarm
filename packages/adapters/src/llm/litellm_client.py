@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-from typing import Optional
+from typing import Any, Optional
 
 from litellm import completion, completion_cost
 
@@ -87,7 +86,6 @@ class LiteLLMClient(LLMClient):
             completion_tokens=int(_read(usage_obj, "completion_tokens", 0) or 0),
             total_tokens=int(_read(usage_obj, "total_tokens", 0) or 0),
         )
-
         return CompletionResult(
             message=AssistantMessage(
                 content=_read(message_obj, "content"),
