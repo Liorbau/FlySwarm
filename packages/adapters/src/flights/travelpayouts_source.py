@@ -1,14 +1,7 @@
-"""Travelpayouts (Aviasales) Data Access API adapter.
-
-This is the ONLY place that knows Travelpayouts' JSON shape, field names, auth
-header, and URL conventions. It maps the vendor response into canonical
-``FlightOffer`` objects; nothing vendor-specific leaks past this file.
-
-Endpoint: ``GET {base_url}/v1/prices/cheap`` ("cheapest tickets" for a route).
-Auth: token in the ``X-Access-Token`` header (env ``TRAVELPAYOUTS_API_KEY``).
-Booking links are constructed as affiliate Aviasales URLs using the partner
-``marker`` (env ``TRAVELPAYOUTS_MARKER``), since the Data API returns no link.
-
+"""Travelpayouts (Aviasales) Data Access API adapter: the only place that knows the
+vendor JSON shape, field names, auth header, and URLs; maps responses into canonical
+``FlightOffer``s. Booking links are affiliate Aviasales URLs built from the partner
+``marker``, since the Data API returns no link.
 Docs: https://api.travelpayouts.com/documentation
 """
 
@@ -82,11 +75,9 @@ class TravelpayoutsFlightSource:
     ) -> list[FlightOffer]:
         if not isinstance(payload, dict) or not payload.get("success", False):
             return []
-
         data = payload.get("data")
         if not isinstance(data, dict):
             return []
-
         currency = (query.currency or self.currency).upper()
         offers: list[FlightOffer] = []
 
@@ -106,12 +97,7 @@ class TravelpayoutsFlightSource:
         return offers
 
     def _map_single_offer(
-        self,
-        *,
-        raw_offer: Any,
-        origin: str,
-        destination: str,
-        currency: str,
+        self, *, raw_offer: Any, origin: str, destination: str, currency: str
     ) -> Optional[FlightOffer]:
         if not isinstance(raw_offer, dict):
             return None
@@ -150,12 +136,8 @@ class TravelpayoutsFlightSource:
     # ── affiliate deep link ─────────────────────────────────────────────────
 
     def _build_booking_link(
-        self,
-        *,
-        origin: str,
-        destination: str,
-        departure_at: datetime,
-        return_at: Optional[datetime],
+        self, *, origin: str, destination: str,
+        departure_at: datetime, return_at: Optional[datetime],
     ) -> str:
         # Aviasales search slug: ORIGIN + DDMM + DEST [+ DDMM] + passengers.
         slug = f"{origin}{departure_at.strftime('%d%m')}{destination}"
